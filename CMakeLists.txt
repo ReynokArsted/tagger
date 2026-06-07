@@ -5,16 +5,20 @@ project(untitled VERSION 0.1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(QT_QML_GENERATE_QMLLS_INI ON)
 
-# ✅ Добавить Qml
-find_package(Qt6 6.8 REQUIRED COMPONENTS Quick Qml)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Quick Qml LinguistTools)
 
 qt_standard_project_setup(REQUIRES 6.8)
 
-# ✅ Упрощённый вариант — просто указать путь
 set(QML_IMPORT_PATH "C:/msys64/ucrt64/qml" CACHE STRING "QML import paths" FORCE)
 
 qt_add_executable(appuntitled
     main.cpp
+    LanguageManager.h
+    LanguageManager.cpp
+)
+
+set_source_files_properties(Theme.qml
+    PROPERTIES QT_QML_SINGLETON_TYPE TRUE
 )
 
 qt_add_qml_module(appuntitled
@@ -22,6 +26,7 @@ qt_add_qml_module(appuntitled
     VERSION 1.0
     QML_FILES
         Main.qml
+        Theme.qml
 )
 
 set_target_properties(appuntitled PROPERTIES
