@@ -13,9 +13,10 @@ set(QML_IMPORT_PATH "C:/msys64/ucrt64/qml" CACHE STRING "QML import paths" FORCE
 
 qt_add_executable(appuntitled
     main.cpp
-    LanguageManager.h
-    LanguageManager.cpp
+    Translator.h
 )
+
+qt_add_translations(appuntitled TS_FILES i18n/en.ts)
 
 set_source_files_properties(Theme.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE
@@ -27,6 +28,7 @@ qt_add_qml_module(appuntitled
     QML_FILES
         Main.qml
         Theme.qml
+        ThemedButton.qml
 )
 
 set_target_properties(appuntitled PROPERTIES
