@@ -22,7 +22,8 @@ ApplicationWindow
         
             Label 
             {
-                text: qsTr("Enter your text:")
+                text: qsTr("Вводи теги:")
+                color: Theme.textColor
                 font.pixelSize: 14
                 anchors.horizontalCenter: parent.horizontalCenter
             }
@@ -41,7 +42,7 @@ ApplicationWindow
                     width: 300
                     height: 40
     
-                    text: qsTr("Change this!")
+                    text: qsTr("Поле ввода")
                     color: Theme.textColor
                     font.pixelSize: 16
                     padding: 12
@@ -52,15 +53,19 @@ ApplicationWindow
 
             Label 
             {
-                text: qsTr(`Current: ${input.text}`)
+                text: qsTr("Текущий ввод: %1").arg(input.text)
                 font.pixelSize: 12
                 color: "gray"
                 anchors.horizontalCenter: parent.horizontalCenter
             }
 
-            Button {
-                text: Theme.isDarkMode ? qsTr("Set light theme") : qsTr("Set dark theme")
+            ThemedButton {
+                text: Theme.isDarkMode ? qsTr("Установить светлую тему") : qsTr("Установить тёмную тему")
                 onClicked: Theme.isDarkMode = !Theme.isDarkMode
+            }
+            ThemedButton {
+                text: AppTranslator.language === "en" ? qsTr("Изменить язык на русский") : qsTr("Изменить язык на английский")
+                onClicked: AppTranslator.language = AppTranslator.language === "en" ? "ru" : "en"
             }
         }
         Rectangle { color: "red"; width: 50; height: 50 }
