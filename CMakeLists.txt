@@ -12,7 +12,7 @@ qt_standard_project_setup(REQUIRES 6.8)
 set(QML_IMPORT_PATH "C:/msys64/ucrt64/qml" CACHE STRING "QML import paths" FORCE)
 
 qt_add_executable(appuntitled
-    main.cpp
+    Main.cpp
     Translator.h
 )
 
@@ -25,11 +25,18 @@ set_source_files_properties(Theme.qml
 qt_add_qml_module(appuntitled
     URI untitled
     VERSION 1.0
-    QML_FILES
+    QML_FILES 
         Main.qml
         Theme.qml
-        ThemedButton.qml
+        ThemedButton.qml 
+        ThingGrid.qml 
+        ThingTile.qml
+    SOURCES 
+        Thingie.h Thingie.cpp 
+        ThingieListModel.h ThingieListModel.cpp 
+        ThingModel.h ThingModel.cpp
 )
+
 
 set_target_properties(appuntitled PROPERTIES
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
