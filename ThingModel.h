@@ -1,5 +1,6 @@
 #ifndef THINGMODEL_H
 #define THINGMODEL_H
+
 #include <QObject>
 #include <QQmlEngine>
 #include <ThingieListModel.h>

@@ -1,9 +1,9 @@
 /* Author: Remy van Elst, https://raymii.org
  * License: GNU AGPLv3
  */
-#include "ThingieListModel.h"
-
 #include <QDebug>
+
+#include "ThingieListModel.h"
 
 ThingieListModel::ThingieListModel(QObject *parent) :
     QAbstractListModel(parent)
@@ -66,19 +66,13 @@ int ThingieListModel::rowCount(const QModelIndex &) const
 
 void ThingieListModel::move(int from, int to)
 {
-    if(from >= 0 && from < rowCount() && to >= 0 && to < rowCount() && from != to) {
-        if(from == to - 1) { // Allow item moving to the bottom
-            to = from++;
-        }
+    if (from < 0 || from >= rowCount() || to < 0 || to >= rowCount() || from == to)
+        return;
 
-        beginResetModel();
-//        beginMoveRows(QModelIndex(), from, from, QModelIndex(), to);
-        qInfo() << "model move from: " << from << " to: " << to;
-        _thingies.move(from, to);
-//        endMoveRows();
-        endResetModel();
-
-    }
+    int destRow = (to > from) ? to + 1 : to;
+    beginMoveRows(QModelIndex(), from, from, QModelIndex(), destRow);
+    _thingies.move(from, to);
+    endMoveRows();
 }
 
 QString ThingieListModel::print()
