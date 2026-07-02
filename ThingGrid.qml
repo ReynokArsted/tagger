@@ -11,10 +11,10 @@ import "./" as Example
 GridView {
     id: root
     width: 600
-    height: 600
+    height: 200
 
-    cellWidth: 250
-    cellHeight: 250
+    cellWidth: 100
+    cellHeight: 100
 
     displaced: Transition {
         NumberAnimation {

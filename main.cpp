@@ -5,6 +5,7 @@
 #include <QTextStream>
 
 #include "Translator.h"
+#include "FileListModel.h"
 
 void logHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
@@ -25,7 +26,9 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
     Translator translator(&engine);
     engine.rootContext()->setContextProperty("Translator", &translator);
-    engine.load(QUrl(QStringLiteral("qrc:/main.qml")));
+    //engine.load(QUrl(QStringLiteral("qrc:/main.qml")));
+
+    qmlRegisterType<FileListModel>("untitled.files", 1, 0, "FileListModel");
 
     QObject::connect(
         &engine,

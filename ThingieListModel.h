@@ -5,8 +5,9 @@
 #ifndef ThingieLISTMODEL_H
 #define ThingieLISTMODEL_H
 
-#include "Thingie.h"
 #include <QAbstractListModel>
+
+#include "Thingie.h"
 
 class ThingieListModel : public QAbstractListModel
 {

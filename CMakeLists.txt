@@ -35,6 +35,7 @@ qt_add_qml_module(appuntitled
         Thingie.h Thingie.cpp 
         ThingieListModel.h ThingieListModel.cpp 
         ThingModel.h ThingModel.cpp
+        FileListModel.h FileListModel.cpp
 )
 
 

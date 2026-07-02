@@ -1,10 +1,9 @@
 /* Author: Remy van Elst, https://raymii.org
  * License: GNU AGPLv3
  */
+#include <random>
 
 #include "Thingie.h"
-
-#include <random>
 
 Thingie::Thingie(const QString& name, QObject* parent) : QObject(parent), _name(name)
 {
