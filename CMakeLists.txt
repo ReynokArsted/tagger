@@ -5,7 +5,7 @@ project(untitled VERSION 0.1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(QT_QML_GENERATE_QMLLS_INI ON)
 
-find_package(Qt6 6.8 REQUIRED COMPONENTS Quick Qml LinguistTools)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Quick Qml LinguistTools Sql)
 
 qt_standard_project_setup(REQUIRES 6.8)
 
@@ -46,9 +46,8 @@ set_target_properties(appuntitled PROPERTIES
     WIN32_EXECUTABLE TRUE
 )
 
-target_link_libraries(appuntitled
-    PRIVATE Qt6::Quick
-)
+target_link_libraries(appuntitled PRIVATE Qt6::Quick)
+target_link_libraries(appuntitled PRIVATE Qt6::Sql)
 
 include(GNUInstallDirs)
 install(TARGETS appuntitled

@@ -5,7 +5,7 @@
 
 #include "Thingie.h"
 
-Thingie::Thingie(const QString& name, QObject* parent) : QObject(parent), _name(name)
+Thingie::Thingie(const QString& name, QObject* parent) : QObject(parent), _name("#"+ name)
 {
 
 }
@@ -49,7 +49,6 @@ QString Thingie::randomHexString(unsigned int length)
     }
     return result;
 }
-
 
 QColor Thingie::randomColor()
 {

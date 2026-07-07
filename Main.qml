@@ -149,6 +149,11 @@ ApplicationWindow {
                             anchors.horizontalCenter: parent.horizontalCenter
                         }
 
+                        Button {
+                            text: qsTr("Add")
+                            onClicked: ThingModel.listOfThingies.addThing(input.text)
+                        }
+
                         Example.ThingGrid {
                             id: g
                             Layout.fillWidth: true
