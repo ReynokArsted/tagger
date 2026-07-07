@@ -6,6 +6,9 @@
 #define ThingieLISTMODEL_H
 
 #include <QAbstractListModel>
+#include <QSqlDatabase>
+#include <QSqlQuery>
+#include <QSqlError>
 
 #include "Thingie.h"
 
@@ -28,6 +31,34 @@ public:
 
     Q_INVOKABLE void move(int from, int to);
     Q_INVOKABLE QString print();
+
+///
+    Q_INVOKABLE void addThing(const QString &name)
+    {
+        const int row = _thingies.size();
+        beginInsertRows(QModelIndex(), row, row);
+
+        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
+        db.setDatabaseName("test.db");
+
+        if (!db.open()) {
+            qWarning() << "DB open failed:" << db.lastError().text();
+            return;
+        }
+
+        QSqlQuery query(db);
+        query.prepare("INSERT INTO tag(tag_name) VALUES(:name)");
+        query.bindValue(":name", name);
+
+        if (!query.exec()) {
+            qWarning() << "SELECT tag failed:" << query.lastError().text();
+            return;
+        }
+
+        _thingies.append(new Thingie(name, this));
+        endInsertRows();
+    }
+///
 
 private:
     QList<Thingie*> _thingies;

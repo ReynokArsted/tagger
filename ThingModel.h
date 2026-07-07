@@ -16,6 +16,7 @@ public:
     ThingModel(QObject* parent = nullptr);
     Q_INVOKABLE QString printModel() { return _listOfThingies.print(); }
     ThingieListModel* listOfThingies() { return &_listOfThingies; }
+
 private:
     ThingieListModel _listOfThingies;
 };

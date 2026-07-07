@@ -16,6 +16,8 @@ GridView {
     cellWidth: 100
     cellHeight: 100
 
+    clip: true
+
     displaced: Transition {
         NumberAnimation {
             properties: "x,y"
@@ -48,6 +50,7 @@ GridView {
                 var from = modelIndex
                 var to = (drag.source as Example.ThingTile).visualIndex
                 ThingModel.listOfThingies.move(from, to)
+                //ThingModel.addTest()
             }
 
             property int visualIndex: DelegateModel.itemsIndex
