@@ -1,41 +1,32 @@
-/* Author: Remy van Elst, https://raymii.org
- * License: GNU AGPLv3
- */
 #include <random>
 
 #include "Thingie.h"
 
-Thingie::Thingie(const QString& name, QObject* parent) : QObject(parent), _name("#"+ name)
-{
+Thingie::Thingie(int id, const QString& name, QObject* parent)
+    : QObject(parent), _id(id), _name("#" + name) {}
 
-}
+Thingie::Thingie(const QString& name, QObject* parent)
+    : Thingie(-1, name, parent) {}
 
-const QString &Thingie::name() const
-{
-    return _name;
-}
+int Thingie::id() const { return _id; }
+
+const QString &Thingie::name() const { return _name; }
 
 void Thingie::setName(const QString &newName)
 {
-    if (_name == newName)
-        return;
+    if (_name == newName) return;
     _name = newName;
     emit nameChanged(_name);
 }
 
-const QColor &Thingie::color() const
-{
-    return _color;
-}
+const QColor &Thingie::color() const { return _color; }
 
 void Thingie::setColor(const QColor &newColor)
 {
-    if (_color == newColor)
-        return;
+    if (_color == newColor) return;
     _color = newColor;
     emit colorChanged(_color);
 }
-
 
 QString Thingie::randomHexString(unsigned int length)
 {
@@ -44,9 +35,7 @@ QString Thingie::randomHexString(unsigned int length)
     std::string hex_characters = "0123456789abcdef";
     std::uniform_int_distribution<int> dist(0, hex_characters.length() - 1);
     for (unsigned int i = 0; i < length; i++)
-    {
         result += hex_characters[dist(generator)];
-    }
     return result;
 }
 

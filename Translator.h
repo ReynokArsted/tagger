@@ -15,14 +15,12 @@ public:
 
     void setLanguage(const QString &lang)
     {
-        if (lang == m_language)
-            return;
+        if (lang == m_language) return;
 
         qApp->removeTranslator(&m_translator);
 
         if (lang == "en") {
-            if (m_translator.load(":/i18n/en.qm"))
-                qApp->installTranslator(&m_translator);
+            if (m_translator.load(":/i18n/en.qm")) qApp->installTranslator(&m_translator);
         }
 
         m_language = lang;
