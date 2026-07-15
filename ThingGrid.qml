@@ -1,7 +1,3 @@
-/* Author: Remy van Elst, https://raymii.org
- * License: GNU AGPLv3
- */
-
 import QtQuick 
 import QtQml.Models
 import untitled 1.0
@@ -10,12 +6,15 @@ import "./" as Example
 
 GridView {
     id: root
+
+    property bool highlightBorders: false
+    property bool isTagSelectionMode: false
+    property QtObject hub
+
     width: 600
     height: 200
-
     cellWidth: 100
     cellHeight: 100
-
     clip: true
 
     displaced: Transition {
@@ -27,15 +26,17 @@ GridView {
 
     model: DelegateModel {
         id: visualModel
+
         model: ThingModel.listOfThingies
 
-        // each square is both a drag-able item as well as a droparea (to drop items in).
         delegate: DropArea {
             id: delegateRoot
+
             required property color color
             required property string name
-
+            required property int id
             property int modelIndex
+            property int visualIndex: DelegateModel.itemsIndex
 
             width: root.cellWidth
             height: root.cellHeight
@@ -50,21 +51,24 @@ GridView {
                 var from = modelIndex
                 var to = (drag.source as Example.ThingTile).visualIndex
                 ThingModel.listOfThingies.move(from, to)
-                //ThingModel.addTest()
             }
-
-            property int visualIndex: DelegateModel.itemsIndex
 
             Example.ThingTile {
                 id: thingTile
+
                 width: root.cellWidth * 0.8
                 height: root.cellHeight * 0.8
                 dragParent: root
                 visualIndex: delegateRoot.visualIndex
                 color: delegateRoot.color
-                onPressed: delegateRoot.modelIndex = visualIndex
+                borderHighlight: false
 
-                // content of the draggable square
+                onPressed: {
+                    delegateRoot.modelIndex = visualIndex
+                    root.hub.selected(delegateRoot.id)
+                    borderHighlight = true
+                }
+
                 Text {
                     anchors.fill: parent
                     anchors.centerIn: parent

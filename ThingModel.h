@@ -14,10 +14,11 @@ class ThingModel : public QObject
     Q_PROPERTY(ThingieListModel* listOfThingies READ listOfThingies CONSTANT)
 public:
     ThingModel(QObject* parent = nullptr);
-    Q_INVOKABLE QString printModel() { return _listOfThingies.print(); }
     ThingieListModel* listOfThingies() { return &_listOfThingies; }
+    
+    Q_INVOKABLE QString printModel() { return _listOfThingies.print(); }
 
 private:
     ThingieListModel _listOfThingies;
 };
-#endif // THINGMODEL_H
+#endif

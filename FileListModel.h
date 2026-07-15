@@ -4,6 +4,7 @@
 #include <QString>
 #include <QFileInfo>
 #include <QDir>
+#include <QQuickWindow>
 
 class FileListModel : public QAbstractListModel {
     Q_OBJECT
@@ -20,14 +21,13 @@ public:
     int rowCount(const QModelIndex& parent = QModelIndex()) const override;
     QVariant data(const QModelIndex& index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
-
     QString folder() const { return m_folder; }
-    Q_INVOKABLE QString parentFolder() const;
 
-    Q_INVOKABLE void setFolder(const QString& folderPath);
-    Q_INVOKABLE void setHomeFolder() {
-        setFolder("");
-    }
+    Q_INVOKABLE QString parentFolder() const;
+    Q_INVOKABLE void setFolder(const QString &folderPath);
+    Q_INVOKABLE void setHomeFolder();
+    Q_INVOKABLE void openWith(const QString &filePath, QQuickWindow *window = nullptr);
+    Q_INVOKABLE void openFile(const QString &filePath, QQuickWindow *window = nullptr);
 
     Q_PROPERTY(bool hasFolder READ hasFolder NOTIFY folderChanged)
 

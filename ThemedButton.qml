@@ -4,9 +4,12 @@ import QtQuick.Controls
 
 Item {
     id: control
+
     property alias text: label.text
     property int fontSize: 14
     property bool showBorder: true
+    property bool pressed: false
+
     signal clicked()
 
     implicitWidth: label.implicitWidth + 24
@@ -24,6 +27,7 @@ Item {
 
     Text {
         id: label
+        
         anchors.fill: parent
         anchors.leftMargin: 12
         anchors.rightMargin: 12
@@ -41,6 +45,4 @@ Item {
         onReleased: { control.pressed = false; control.clicked() }
         onCanceled: control.pressed = false
     }
-
-    property bool pressed: false
 }

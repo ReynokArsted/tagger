@@ -31,6 +31,7 @@ qt_add_qml_module(appuntitled
         ThemedButton.qml 
         ThingGrid.qml 
         ThingTile.qml
+        SignalHub.qml
     SOURCES 
         Thingie.h Thingie.cpp 
         ThingieListModel.h ThingieListModel.cpp 

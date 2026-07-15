@@ -1,7 +1,3 @@
-/* Author: Remy van Elst, https://raymii.org
- * License: GNU AGPLv3
- */
-
 #ifndef THINGIE_H
 #define THINGIE_H
 
@@ -11,11 +7,15 @@
 class Thingie : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(int id READ id CONSTANT)
     Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged)
     Q_PROPERTY(QColor color READ color WRITE setColor NOTIFY colorChanged)
 
 public:
-    Thingie(const QString& name, QObject* parent = nullptr);
+    explicit Thingie(int id, const QString& name, QObject* parent = nullptr);
+    explicit Thingie(const QString& name, QObject* parent = nullptr);
+
+    int id() const;
     const QString &name() const;
     const QColor &color() const;
 
@@ -28,6 +28,7 @@ signals:
     void colorChanged(const QColor &color);
 
 private:
+    int _id = -1;
     QString _name;
     QColor _color = randomColor();
 
@@ -35,4 +36,4 @@ private:
     QString randomHexString(unsigned int length);
 };
 
-#endif // THINGIE_H
+#endif

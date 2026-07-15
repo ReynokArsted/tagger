@@ -1,26 +1,29 @@
-/* Author: Remy van Elst, https://raymii.org
- * License: GNU AGPLv3
- */
-
 import QtQuick
 
 Rectangle {
     id: root
+    
     required property Item dragParent
+    property int visualIndex: 0
+    property bool borderHighlight: false
+    property color normalBorderColor: Theme.offBorder
+    property color highlightBorderColor: Theme.onBorder
+
     signal pressed
     signal released
     signal clicked
 
-    property int visualIndex: 0
-
+    border.width: 4
+    border.color: borderHighlight ? highlightBorderColor : normalBorderColor
     anchors {
         horizontalCenter: parent.horizontalCenter
         verticalCenter: parent.verticalCenter
     }
-    radius: 3
+    radius: 8
 
     MouseArea {
         id: mouseArea
+
         anchors.fill: parent
         drag.target: root
         onClicked: root.clicked()
