@@ -99,7 +99,7 @@ bool ThingieListModel::assignTagsToFile(const QString &path, const QVariantList 
             qWarning() << "SELECT tag_file failed: " << selectLink.lastError().text();
             continue;
         }
-        if (selectLink.next())continue;
+        if (selectLink.next()) continue;
 
         QSqlQuery insertTagFile(db);
         insertTagFile.prepare("INSERT INTO tag_file(tag_id, file_id) VALUES(:tagId, :fileId)");
