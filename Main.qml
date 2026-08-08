@@ -38,7 +38,7 @@ ApplicationWindow {
     function startTagging(path, name) {
         tagTargetPath = path
         tagTargetName = name
-        selectedTagIds = []
+        selectedTagIds = ThingModel.listOfThingies.tagIdsForFile(path)
         tagSelectMode = true
     }
 
@@ -50,10 +50,19 @@ ApplicationWindow {
         selectedTagIds = arr
     }
 
+    function removeTagFromSelection(tagId) {
+        const idx = selectedTagIds.indexOf(tagId)
+        if (idx >= 0) {
+            const arr = selectedTagIds.slice()
+            arr.splice(idx, 1)
+            selectedTagIds = arr
+        }
+    }
+
     function confirmTagging() {
-        if (tagTargetPath !== "" && selectedTagIds.length > 0) {
+        if (tagTargetPath !== "") {
             const ok = ThingModel.listOfThingies.assignTagsToFile(tagTargetPath, selectedTagIds)
-            if (!ok) console.warn("Не удалось сохранить теги для файла: ", tagTargetPath)
+            if (!ok) console.warn("Не удалось сохранить метки для файла: ", tagTargetPath)
         }
         cancelTagging()
     }
@@ -74,14 +83,36 @@ ApplicationWindow {
     // }
 
     Example.SignalHub { id: hub }
-
-    Connections {
+    Connections 
+    {
         target: hub
-        function onSelected(id) {
-            if (win.tagSelectMode) {
+        function onSelected(id, name) 
+        {
+            if (win.tagSelectMode) 
+            {
                 console.log("selected tag id: ", id)
                 win.toggleTagSelection(id)
             }
+            else
+                if (input.text.indexOf(name) === -1) 
+                {
+                    const sep = input.text.length > 0 && !input.text.endsWith(" ") ? " " : ""
+                    input.text += sep + name
+                }
+        }
+
+        function onTagDeleteRequested(id, name) {
+            console.log("Delete tag:", id, name)
+            const ok = ThingModel.listOfThingies.removeThing(id)
+            if (!ok) console.warn("Error removing tag:", name)
+            else win.removeTagFromSelection(id)
+        }
+
+        function onTagFilesRequested(id, name) {
+            console.log("Show files by tag:", id, name)
+            const query = name
+            input.text = query 
+            fileModel.setFolder(query) 
         }
     }
 
@@ -180,7 +211,7 @@ ApplicationWindow {
                         Layout.fillHeight: true
 
                         Label {
-                            text: qsTr("Вводи теги:")
+                            text: qsTr("Вводи метки:")
                             color: Theme.textColor
                             font.pixelSize: 14
                             anchors.horizontalCenter: parent.horizontalCenter
@@ -265,6 +296,7 @@ ApplicationWindow {
                             Layout.fillHeight: true
                             highlightBorders: win.addTagHighlight
                             isTagSelectionMode: win.tagSelectMode
+                            selectedTagIds: win.selectedTagIds  
                             hub: hub
                         }
 
@@ -469,7 +501,7 @@ ApplicationWindow {
                                     property bool currentIsDir: false
 
                                     MenuItem {
-                                        text: qsTr("Добавить тег")
+                                        text: qsTr("Задать метки")
                                         onTriggered: {
                                             console.log("Tag added for: ", ctxMenu.currentPath)
                                             //win.addTagHighlight = true
@@ -487,7 +519,7 @@ ApplicationWindow {
                                         }
                                     }
                                     MenuItem {
-                                        text: qsTr("Открыть с помощью...")
+                                        text: qsTr("Открыть с помощью ...")
                                         onTriggered: {
                                             if (ctxMenu.currentIsDir) {
                                                 fileModel.setFolder(ctxMenu.currentPath)

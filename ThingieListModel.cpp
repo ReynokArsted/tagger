@@ -53,9 +53,46 @@ void ThingieListModel::addThing(const QString &name)
     endInsertRows();
 }
 
+bool ThingieListModel::removeThing(int tagId)
+{
+    const int row = std::find_if(_thingies.begin(), _thingies.end(),
+        [tagId](Thingie *t) { return t->id() == tagId; }) - _thingies.begin();
+
+    if (row < 0 || row >= _thingies.size()) return false;
+
+    QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
+    db.setDatabaseName("test.db");
+
+    if (!db.open()) {
+        qWarning() << "DB open failed: " << db.lastError().text();
+        return false;
+    }
+
+    QSqlQuery deleteLinks(db);
+    deleteLinks.prepare("DELETE FROM tag_file WHERE tag_id = :tagId");
+    deleteLinks.bindValue(":tagId", tagId);
+    if (!deleteLinks.exec())
+        qWarning() << "DELETE tag_file failed: " << deleteLinks.lastError().text();
+
+    QSqlQuery deleteTag(db);
+    deleteTag.prepare("DELETE FROM tag WHERE id = :tagId");
+    deleteTag.bindValue(":tagId", tagId);
+    if (!deleteTag.exec()) {
+        qWarning() << "DELETE tag failed: " << deleteTag.lastError().text();
+        return false;
+    }
+
+    beginRemoveRows(QModelIndex(), row, row);
+    delete _thingies.at(row);
+    _thingies.removeAt(row);
+    endRemoveRows();
+
+    return true;
+}
+
 bool ThingieListModel::assignTagsToFile(const QString &path, const QVariantList &tagIds)
 {
-    if (path.isEmpty() || tagIds.isEmpty()) return false;
+    if (path.isEmpty()) return false;
 
     QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
     db.setDatabaseName("test.db");
@@ -86,30 +123,77 @@ bool ThingieListModel::assignTagsToFile(const QString &path, const QVariantList 
         fileId = insertFile.lastInsertId().toInt();
     }
 
+    QSet<int> desiredTagIds;
     for (const QVariant &tagIdVar : tagIds) {
         const int tagId = tagIdVar.toInt();
-        if (tagId < 0) continue;
+        if (tagId >= 0) desiredTagIds.insert(tagId);
+    }
 
-        QSqlQuery selectLink(db);
-        selectLink.prepare("SELECT id FROM tag_file WHERE tag_id = :tagId AND file_id = :fileId");
-        selectLink.bindValue(":tagId", tagId);
-        selectLink.bindValue(":fileId", fileId);
+    QSqlQuery selectExisting(db);
+    selectExisting.prepare("SELECT tag_id FROM tag_file WHERE file_id = :fileId");
+    selectExisting.bindValue(":fileId", fileId);
+    if (!selectExisting.exec()) {
+        qWarning() << "SELECT existing tag_file failed: " << selectExisting.lastError().text();
+        return false;
+    }
 
-        if (!selectLink.exec()) {
-            qWarning() << "SELECT tag_file failed: " << selectLink.lastError().text();
-            continue;
-        }
-        if (selectLink.next()) continue;
+    QSet<int> existingTagIds;
+    while (selectExisting.next())
+        existingTagIds.insert(selectExisting.value(0).toInt());
 
+    const QSet<int> toRemove = existingTagIds - desiredTagIds;
+    for (int tagId : toRemove) {
+        QSqlQuery deleteLink(db);
+        deleteLink.prepare("DELETE FROM tag_file WHERE tag_id = :tagId AND file_id = :fileId");
+        deleteLink.bindValue(":tagId", tagId);
+        deleteLink.bindValue(":fileId", fileId);
+        if (!deleteLink.exec())
+            qWarning() << "DELETE tag_file failed: " << deleteLink.lastError().text();
+    }
+
+    const QSet<int> toAdd = desiredTagIds - existingTagIds;
+    for (int tagId : toAdd) {
         QSqlQuery insertTagFile(db);
         insertTagFile.prepare("INSERT INTO tag_file(tag_id, file_id) VALUES(:tagId, :fileId)");
         insertTagFile.bindValue(":tagId", tagId);
         insertTagFile.bindValue(":fileId", fileId);
-        if (!insertTagFile.exec()) {
+        if (!insertTagFile.exec())
             qWarning() << "INSERT tag_file failed: " << insertTagFile.lastError().text();
-        }
     }
+
     return true;
+}
+
+QVariantList ThingieListModel::tagIdsForFile(const QString &path) const
+{
+    QVariantList result;
+    if (path.isEmpty()) return result;
+
+    QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
+    db.setDatabaseName("test.db");
+
+    if (!db.open()) {
+        qWarning() << "DB open failed: " << db.lastError().text();
+        return result;
+    }
+
+    QSqlQuery query(db);
+    query.prepare(
+        "SELECT tag_file.tag_id FROM tag_file "
+        "JOIN file ON file.id = tag_file.file_id "
+        "WHERE file.path = :path"
+    );
+    query.bindValue(":path", path);
+
+    if (!query.exec()) {
+        qWarning() << "SELECT tagIdsForFile failed: " << query.lastError().text();
+        return result;
+    }
+
+    while (query.next())
+        result.append(query.value(0).toInt());
+
+    return result;
 }
 
 QVariant ThingieListModel::data(const QModelIndex &index, int role) const
