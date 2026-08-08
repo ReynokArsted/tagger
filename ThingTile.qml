@@ -12,6 +12,7 @@ Rectangle {
     signal pressed
     signal released
     signal clicked
+    signal rightClicked
 
     border.width: 4
     border.color: borderHighlight ? highlightBorderColor : normalBorderColor
@@ -22,9 +23,10 @@ Rectangle {
     radius: 8
 
     MouseArea {
-        id: mouseArea
+        id: dragArea
 
         anchors.fill: parent
+        acceptedButtons: Qt.LeftButton
         drag.target: root
         onClicked: root.clicked()
         onPressed: root.pressed()
@@ -34,14 +36,22 @@ Rectangle {
         }
     }
 
-    Drag.active: mouseArea.drag.active
+    MouseArea {
+        id: contextArea
+
+        anchors.fill: parent
+        acceptedButtons: Qt.RightButton
+        onClicked: root.rightClicked()
+    }
+
+    Drag.active: dragArea.drag.active
     Drag.source: root
     Drag.hotSpot.x: root.width / 2
     Drag.hotSpot.y: root.height / 2
 
     states: [
         State {
-            when: mouseArea.drag.active
+            when: dragArea.drag.active
             ParentChange {
                 target: root
                 parent: root.dragParent

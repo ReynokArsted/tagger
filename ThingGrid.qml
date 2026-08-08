@@ -1,5 +1,6 @@
 import QtQuick 
 import QtQml.Models
+import QtQuick.Controls
 import untitled 1.0
 
 import "./" as Example
@@ -10,6 +11,7 @@ GridView {
     property bool highlightBorders: false
     property bool isTagSelectionMode: false
     property QtObject hub
+    property var selectedTagIds: [] 
 
     width: 600
     height: 200
@@ -38,6 +40,9 @@ GridView {
             property int modelIndex
             property int visualIndex: DelegateModel.itemsIndex
 
+            readonly property bool isSelected:
+                root.isTagSelectionMode && root.selectedTagIds.indexOf(id) !== -1
+
             width: root.cellWidth
             height: root.cellHeight
 
@@ -61,12 +66,28 @@ GridView {
                 dragParent: root
                 visualIndex: delegateRoot.visualIndex
                 color: delegateRoot.color
-                borderHighlight: false
+                borderHighlight: delegateRoot.isSelected 
 
                 onPressed: {
-                    delegateRoot.modelIndex = visualIndex
-                    root.hub.selected(delegateRoot.id)
-                    borderHighlight = true
+                    delegateRoot.modelIndex = visualIndex 
+                }
+
+                onClicked: {
+                    root.hub.selected(delegateRoot.id, delegateRoot.name)  
+                }
+                
+                onRightClicked: tagMenu.popup()
+                Menu {
+                    id: tagMenu
+
+                    MenuItem {
+                        text: qsTr("Показать файлы по метке")
+                        onTriggered: root.hub.tagFilesRequested(delegateRoot.id, delegateRoot.name)
+                    }
+                    MenuItem {
+                        text: qsTr("Удалить метку")
+                        onTriggered: root.hub.tagDeleteRequested(delegateRoot.id, delegateRoot.name)
+                    }
                 }
 
                 Text {

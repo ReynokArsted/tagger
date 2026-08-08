@@ -31,7 +31,9 @@ public:
     Q_INVOKABLE void move(int from, int to);
     Q_INVOKABLE QString print();
     Q_INVOKABLE void addThing(const QString &name);
+    Q_INVOKABLE bool removeThing(int tagId);
     Q_INVOKABLE bool assignTagsToFile(const QString &path, const QVariantList &tagIds);
+    Q_INVOKABLE QVariantList tagIdsForFile(const QString &path) const;
 
 private:
     QList<Thingie*> _thingies;
