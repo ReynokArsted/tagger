@@ -1,8 +1,9 @@
 import QtQuick 
 import QtQml.Models
 import QtQuick.Controls
-import untitled 1.0
+import QtQuick.Effects
 
+import untitled 1.0
 import "./" as Example
 
 GridView {
@@ -12,6 +13,8 @@ GridView {
     property bool isTagSelectionMode: false
     property QtObject hub
     property var selectedTagIds: [] 
+
+    property Item dragOverlay 
 
     width: 600
     height: 200
@@ -61,19 +64,31 @@ GridView {
             Example.ThingTile {
                 id: thingTile
 
+                dragParent: root.dragOverlay 
+
                 width: root.cellWidth * 0.8
                 height: root.cellHeight * 0.8
-                dragParent: root
+                //dragParent: root
                 visualIndex: delegateRoot.visualIndex
                 color: delegateRoot.color
                 borderHighlight: delegateRoot.isSelected 
+
+    layer.enabled: true
+    layer.effect: MultiEffect {
+        shadowEnabled: true
+        shadowColor: "#40000000"
+        shadowBlur: 0.5
+        shadowHorizontalOffset: 0
+        shadowVerticalOffset: 2
+    }
 
                 onPressed: {
                     delegateRoot.modelIndex = visualIndex 
                 }
 
                 onClicked: {
-                    root.hub.selected(delegateRoot.id, delegateRoot.name)  
+                    root.hub.selected(delegateRoot.id, delegateRoot.name)
+                    ThingModel.listOfThingies.move(delegateRoot.visualIndex, 0)  
                 }
                 
                 onRightClicked: tagMenu.popup()
@@ -82,7 +97,11 @@ GridView {
 
                     MenuItem {
                         text: qsTr("Показать файлы по метке")
-                        onTriggered: root.hub.tagFilesRequested(delegateRoot.id, delegateRoot.name)
+                        onTriggered: 
+                        {
+                            root.hub.tagFilesRequested(delegateRoot.id, delegateRoot.name)
+                            ThingModel.listOfThingies.move(delegateRoot.visualIndex, 0) 
+                        }
                     }
                     MenuItem {
                         text: qsTr("Удалить метку")

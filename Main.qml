@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Window
 import QtQuick.Layouts
+import QtQuick.Effects
 
 import untitled 1.0
 import untitled.files 1.0
@@ -63,6 +64,9 @@ ApplicationWindow {
         if (tagTargetPath !== "") {
             const ok = ThingModel.listOfThingies.assignTagsToFile(tagTargetPath, selectedTagIds)
             if (!ok) console.warn("Не удалось сохранить метки для файла: ", tagTargetPath)
+
+            else fileModel.setFolder(fileModel.currentFolder)  // форсируем перезагрузку списка файлов
+
         }
         cancelTagging()
     }
@@ -143,7 +147,7 @@ ApplicationWindow {
         id: content
 
         property int r: 8
-        property int frame: 2
+        property int frame: 4
         property string tagText: input.text
 
         anchors.fill: parent
@@ -154,7 +158,7 @@ ApplicationWindow {
         Rectangle {
             anchors.fill: parent
             radius: content.r
-            color: Theme.borderColor
+            color: Qt.alpha(Theme.borderColor, 0.4)
         }
 
         Rectangle {
@@ -204,11 +208,16 @@ ApplicationWindow {
                     spacing: 2
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    clip: true
 
                     ColumnLayout {
                         spacing: 10
                         Layout.preferredWidth: 320
+                        Layout.minimumWidth: 320
+                        Layout.maximumWidth: 320
                         Layout.fillHeight: true
+
+                        clip: true
 
                         Label {
                             text: qsTr("Вводи метки:")
@@ -222,7 +231,7 @@ ApplicationWindow {
                             Layout.fillWidth: true
 
                             Rectangle {
-                                Layout.preferredWidth: 200
+                                Layout.fillWidth: true  
                                 Layout.preferredHeight: 40
                                 color: Theme.fieldBackground
                                 border.color: Theme.borderColor
@@ -233,7 +242,7 @@ ApplicationWindow {
                                     id: input
 
                                     anchors.fill: parent
-                                    anchors.margins: 12
+                                    anchors.margins: 8
                                     text: qsTr("Поле ввода")
                                     color: Theme.textColor
                                     font.pixelSize: 16
@@ -298,6 +307,8 @@ ApplicationWindow {
                             isTagSelectionMode: win.tagSelectMode
                             selectedTagIds: win.selectedTagIds  
                             hub: hub
+
+                            dragOverlay: dragOverlay
                         }
 
                         Example.ThemedButton {
@@ -418,161 +429,241 @@ ApplicationWindow {
                     //     }
                     // }
 
-                    ColumnLayout {
-                        //Layout.fillWidth: true
+                    Rectangle {
+                        id: fileListPanel
+
+                        Layout.fillWidth: true
                         Layout.fillHeight: true
-                        Layout.preferredWidth: 300
+                        Layout.minimumWidth: 120
+                        Layout.margins: 12     
 
-                        ListView {
-                            id: fileListView
+                        radius: 10
+                        color: Theme.fieldBackground
+                        border.color: Theme.borderColor
+                        border.width: 1
+                        clip: true
 
-                            property alias tagInput: input
+                        layer.enabled: true
+                        layer.effect: MultiEffect {
+                            shadowEnabled: true
+                            shadowColor: "#40000000"
+                            shadowBlur: 0.6
+                            shadowHorizontalOffset: 0
+                            shadowVerticalOffset: 3
+                        }
 
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            Layout.margins: 8 
-                            clip: true
-                            spacing: 6
-                            model: fileModel
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 8
 
-                            delegate: Rectangle {
-                                id: card
+                            ListView {
+                                id: fileListView
+                                
+                                property alias tagInput: input
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                clip: true
+                                spacing: 6
+                                model: fileModel
 
-                                property bool pressed: false
+                                delegate: Rectangle {
+                                    id: card
 
-                                width: ListView.view.width
-                                height: 36
+                                    property bool pressed: false
+                                    property var tagColors: []
+
+                                    width: ListView.view.width
+                                    height: 36
+                                    radius: 8
+                                    color: ListView.isCurrentItem ? Theme.selectionColor : Theme.fieldBackground
+                                    border.color: ListView.isCurrentItem ? Theme.accentColor : Theme.borderColor
+                                    border.width: ListView.isCurrentItem ? 2 : 1
+                                    scale: pressed ? 0.98 : 1.0
+
+                                    Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
+                                    Behavior on color { ColorAnimation { duration: 100 } }
+
+                                    function refreshTagColors() {
+                                        const ids = ThingModel.listOfThingies.tagIdsForFile(path)
+                                        const colors = []
+                                        for (var i = 0; i < ids.length; i++)
+                                            colors.push(ThingModel.listOfThingies.colorForId(ids[i]))
+                                        tagColors = colors
+                                    }
+
+                                    Component.onCompleted: refreshTagColors()
+
+                                    Row {
+                                        anchors.left: parent.left
+                                        anchors.right: tagDots.left
+                                        anchors.rightMargin: 8
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.leftMargin: 12
+                                        spacing: 8
+
+                                        TextInput {
+                                            id: renameInput
+
+                                            visible: win.renameMode && win.editingPath === path
+                                            text: win.editingName
+                                            color: Theme.textColor
+                                            font.pixelSize: 16
+                                            selectByMouse: true
+                                            activeFocusOnPress: true
+                                            horizontalAlignment: Text.AlignLeft
+                                            verticalAlignment: Text.AlignVCenter
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            width: parent.width
+
+                                            onVisibleChanged: if (visible) {
+                                                text = win.editingName
+                                                forceActiveFocus()
+                                                selectAll()
+                                            }
+
+                                            onAccepted: win.commitRename(text)
+                                            onEditingFinished: if (visible) win.commitRename(text)
+                                            Keys.onEscapePressed: win.cancelRename()
+                                        }
+
+                                        Text {
+                                            visible: !renameInput.visible
+                                            text: isDir ? (name + "/") : name
+                                            color: Theme.textColor
+                                            elide: Text.ElideRight
+                                            verticalAlignment: Text.AlignVCenter
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            width: parent.width
+                                        }
+                                    }
+
+                                    Row {
+                                        id: tagDots
+                                        anchors.right: parent.right
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.rightMargin: 12
+                                        spacing: 4
+
+                                        Repeater {
+                                            model: card.tagColors
+                                            delegate: Rectangle {
+                                                width: 8
+                                                height: 8
+                                                radius: 4
+                                                color: modelData
+                                                border.width: 1
+                                                border.color: Qt.darker(modelData, 1.3)
+                                            }
+                                        }
+                                    }
+
+                                    Menu {
+                                        id: ctxMenu
+
+                                        property string currentPath: ""
+                                        property string currentName: ""
+                                        property bool currentIsDir: false
+
+                                        MenuItem {
+                                            text: qsTr("Задать метки")
+                                            onTriggered: {
+                                                console.log("Tag added for: ", ctxMenu.currentPath)
+                                                win.startTagging(ctxMenu.currentPath, ctxMenu.currentName)
+                                            }
+                                        }
+                                        MenuItem {
+                                            text: qsTr("Открыть")
+                                            onTriggered: {
+                                                if (ctxMenu.currentIsDir) {
+                                                    fileModel.setFolder(ctxMenu.currentPath)
+                                                    fileListView.tagInput.text = ctxMenu.currentPath
+                                                } 
+                                                else fileModel.openFile(ctxMenu.currentPath, win)
+                                            }
+                                        }
+                                        MenuItem {
+                                            text: qsTr("Открыть с помощью ...")
+                                            onTriggered: {
+                                                if (ctxMenu.currentIsDir) {
+                                                    fileModel.setFolder(ctxMenu.currentPath)
+                                                    fileListView.tagInput.text = ctxMenu.currentPath
+                                                } 
+                                                else fileModel.openWith(ctxMenu.currentPath, win)
+                                            }
+                                        }
+                                        MenuItem {
+                                            text: qsTr("Переименовать")
+                                            onTriggered: win.startRename(ctxMenu.currentPath, ctxMenu.currentName)
+                                        }
+                                        MenuItem {
+                                            text: qsTr("Удалить")
+                                            onTriggered: console.log("Delete: ", ctxMenu.currentPath)
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+
+                                        onPressed: {
+                                            if (mouse.button === Qt.RightButton) {
+                                                card.pressed = false
+                                                ctxMenu.currentPath = path
+                                                ctxMenu.currentName = name
+                                                ctxMenu.currentIsDir = isDir
+                                                ctxMenu.popup(card, mouse.x, mouse.y + 6)
+                                            } 
+                                            else if (mouse.button === Qt.LeftButton) card.pressed = true
+                                        }
+
+                                        onReleased: if (mouse.button === Qt.LeftButton) card.pressed = false
+
+                                        onClicked: if (mouse.button === Qt.LeftButton) fileListView.currentIndex = index
+                                        onDoubleClicked: {
+                                            if (mouse.button === Qt.LeftButton) { 
+                                                if (isDir) {
+                                                    fileListView.tagInput.text = fileListView.tagInput.text + name + "/"
+                                                    fileModel.setFolder(fileListView.tagInput.text)
+                                                } 
+                                                else fileModel.openFile(path)
+                                            }
+                                        }
+                                        onCanceled: card.pressed = false
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                anchors.centerIn: fileListView
+                                visible: fileListView.count === 0
+                                width: 220
+                                height: 60
                                 radius: 8
-                                color: ListView.isCurrentItem ? Theme.selectionColor : Theme.fieldBackground
-                                border.color: ListView.isCurrentItem ? Theme.accentColor : Theme.borderColor
-                                border.width: ListView.isCurrentItem ? 2 : 1
-                                scale: pressed ? 0.98 : 1.0
+                                color: Theme.fieldBackground
+                                border.color: Theme.borderColor
+                                border.width: 1
 
-                                Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
-                                Behavior on color { ColorAnimation { duration: 100 } }
-
-                                Row {
-                                    anchors.fill: parent
-                                    anchors.leftMargin: 12
-                                    anchors.rightMargin: 12
-                                    spacing: 8
-
-                                    TextInput {
-                                        id: renameInput
-
-                                        visible: win.renameMode && win.editingPath === path
-                                        text: win.editingName
-                                        color: Theme.textColor
-                                        font.pixelSize: 16
-                                        selectByMouse: true
-                                        activeFocusOnPress: true
-                                        horizontalAlignment: Text.AlignLeft
-                                        verticalAlignment: Text.AlignVCenter
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        width: parent.width
-
-                                        onVisibleChanged: if (visible) {
-                                            text = win.editingName
-                                            forceActiveFocus()
-                                            selectAll()
-                                        }
-
-                                        onAccepted: win.commitRename(text)
-                                        onEditingFinished: if (visible) win.commitRename(text)
-                                        Keys.onEscapePressed: win.cancelRename()
-                                    }
-
-                                    Text {
-                                        visible: !renameInput.visible
-                                        text: isDir ? (name + "/") : name
-                                        color: Theme.textColor
-                                        elide: Text.ElideRight
-                                        verticalAlignment: Text.AlignVCenter
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        width: parent.width
-                                    }
-                                }
-
-                                Menu {
-                                    id: ctxMenu
-
-                                    property string currentPath: ""
-                                    property string currentName: ""
-                                    property bool currentIsDir: false
-
-                                    MenuItem {
-                                        text: qsTr("Задать метки")
-                                        onTriggered: {
-                                            console.log("Tag added for: ", ctxMenu.currentPath)
-                                            //win.addTagHighlight = true
-                                            win.startTagging(ctxMenu.currentPath, ctxMenu.currentName)
-                                        }
-                                    }
-                                    MenuItem {
-                                        text: qsTr("Открыть")
-                                        onTriggered: {
-                                            if (ctxMenu.currentIsDir) {
-                                                fileModel.setFolder(ctxMenu.currentPath)
-                                                fileListView.tagInput.text = ctxMenu.currentPath
-                                            } 
-                                            else fileModel.openFile(ctxMenu.currentPath, win)
-                                        }
-                                    }
-                                    MenuItem {
-                                        text: qsTr("Открыть с помощью ...")
-                                        onTriggered: {
-                                            if (ctxMenu.currentIsDir) {
-                                                fileModel.setFolder(ctxMenu.currentPath)
-                                                fileListView.tagInput.text = ctxMenu.currentPath
-                                            } 
-                                            else fileModel.openWith(ctxMenu.currentPath, win)
-                                        }
-                                    }
-                                    MenuItem {
-                                        text: qsTr("Переименовать")
-                                        onTriggered: win.startRename(ctxMenu.currentPath, ctxMenu.currentName)
-                                    }
-                                    MenuItem {
-                                        text: qsTr("Удалить")
-                                        onTriggered: console.log("Delete: ", ctxMenu.currentPath)
-                                    }
-                                }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    acceptedButtons: Qt.LeftButton | Qt.RightButton
-
-                                    onPressed: {
-                                        if (mouse.button === Qt.RightButton) {
-                                            card.pressed = false
-                                            ctxMenu.currentPath = path
-                                            ctxMenu.currentName = name
-                                            ctxMenu.currentIsDir = isDir
-                                            ctxMenu.popup(card, mouse.x, mouse.y + 6)
-                                        } 
-                                        else if (mouse.button === Qt.LeftButton) card.pressed = true
-                                    }
-
-                                    onReleased: if (mouse.button === Qt.LeftButton) card.pressed = false
-
-                                    onClicked: if (mouse.button === Qt.LeftButton) fileListView.currentIndex = index
-                                    onDoubleClicked: {
-                                        if (mouse.button === Qt.LeftButton) { 
-                                            if (isDir) {
-                                                fileListView.tagInput.text = fileListView.tagInput.text + name + "/"
-                                                fileModel.setFolder(fileListView.tagInput.text)
-                                            } 
-                                            else fileModel.openFile(path)
-                                        }
-                                    }
-                                    onCanceled: card.pressed = false
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: qsTr("Нет результатов поиска")
+                                    color: Theme.textColor
+                                    font.pixelSize: 14
+                                    horizontalAlignment: Text.AlignHCenter
+                                    wrapMode: Text.WordWrap
+                                    width: parent.width - 20
                                 }
                             }
                         }
-                    }
+                    }    
                 }
             }
         }
+    }
+
+    Item {
+        id: dragOverlay
+        anchors.fill: parent
+        z: 1000
     }
 
     readonly property int resizeMargin: 6
