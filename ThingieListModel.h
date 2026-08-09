@@ -34,6 +34,7 @@ public:
     Q_INVOKABLE bool removeThing(int tagId);
     Q_INVOKABLE bool assignTagsToFile(const QString &path, const QVariantList &tagIds);
     Q_INVOKABLE QVariantList tagIdsForFile(const QString &path) const;
+    Q_INVOKABLE QColor colorForId(int tagId) const; 
 
 private:
     QList<Thingie*> _thingies;

@@ -220,6 +220,17 @@ QVariant ThingieListModel::data(const QModelIndex &index, int role) const
 
 int ThingieListModel::rowCount(const QModelIndex &) const { return _thingies.count(); }
 
+QColor ThingieListModel::colorForId(int tagId) const
+{
+    auto it = std::find_if(_thingies.begin(), _thingies.end(),
+        [tagId](Thingie *t) { return t->id() == tagId; });
+
+    if (it != _thingies.end())
+        return (*it)->color();
+
+    return QColor(Qt::gray);
+}
+
 
 void ThingieListModel::move(int from, int to)
 {
