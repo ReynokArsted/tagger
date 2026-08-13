@@ -32,14 +32,13 @@ ApplicationWindow {
     property bool addTagHighlight: false
 
     property bool tagSelectMode: false
-    property string tagTargetPath: ""
-    property string tagTargetName: ""
+    property bool settings_mode: false
+    property list<string> tagTargetPaths: []
     property var selectedTagIds: []
 
-    function startTagging(path, name) {
-        tagTargetPath = path
-        tagTargetName = name
-        selectedTagIds = ThingModel.listOfThingies.tagIdsForFile(path)
+    function startTagging(paths, name) {
+        tagTargetPaths = paths
+        selectedTagIds = ThingModel.listOfThingies.tagIdsForFile(paths)
         tagSelectMode = true
     }
 
@@ -61,30 +60,27 @@ ApplicationWindow {
     }
 
     function confirmTagging() {
-        if (tagTargetPath !== "") {
-            const ok = ThingModel.listOfThingies.assignTagsToFile(tagTargetPath, selectedTagIds)
-            if (!ok) console.warn("Не удалось сохранить метки для файла: ", tagTargetPath)
-
-            else fileModel.setFolder(fileModel.currentFolder)  // форсируем перезагрузку списка файлов
-
+        if (tagTargetPaths.length != 0) {
+            const ok = ThingModel.listOfThingies.assignTagsToFile(tagTargetPaths, selectedTagIds)
+            if (!ok) console.warn("Не удалось сохранить метки для файлов: ", tagTargetPaths)
+            else fileModel.setFolder(fileModel.currentFolder) 
         }
         cancelTagging()
     }
 
     function cancelTagging() {
         tagSelectMode = false
-        tagTargetPath = ""
-        tagTargetName = ""
+        tagTargetPaths = []
         selectedTagIds = []
     }
 
-    // onTagSelectModeChanged: {
-    //     if (tagSelectMode) {
-    //         tagSelectDialog.open()
-    //     } else if (tagSelectDialog.visible) {
-    //         tagSelectDialog.close()
-    //     }
-    // }
+    onSettings_modeChanged: {
+        if (settings_mode) {
+            settings_dialog.open()
+        } else if (settings_dialog.visible) {
+            settings_dialog.close()
+        }
+    }
 
     Example.SignalHub { id: hub }
     Connections 
@@ -279,7 +275,11 @@ ApplicationWindow {
                                 text: "V"
                                 Layout.preferredWidth: 40
                                 Layout.preferredHeight: 40
-                                onClicked: win.confirmTagging()
+                                onClicked: 
+                                {
+                                    win.confirmTagging()
+                                    fileModel.setFolder(input.text)
+                                }
                             }
 
                             Example.ThemedButton {
@@ -307,127 +307,22 @@ ApplicationWindow {
                             isTagSelectionMode: win.tagSelectMode
                             selectedTagIds: win.selectedTagIds  
                             hub: hub
-
                             dragOverlay: dragOverlay
                         }
-
-                        Example.ThemedButton {
-                            text: Theme.isDarkMode ? qsTr("Установить светлую тему") : qsTr("Установить тёмную тему")
-                            onClicked: Theme.isDarkMode = !Theme.isDarkMode
-                        }
-
-                        Example.ThemedButton {
-                            text: Translator.language === "en" ? qsTr("Изменить язык на русский") : qsTr("Изменить язык на английский")
-                            onClicked: Translator.language = Translator.language === "en" ? "ru" : "en"
+                        
+                        RowLayout {
+                            Example.ThemedButton {
+                                text: "⚙"
+                                onClicked: win.settings_mode = true
+                            }
+                            Example.ThemedButton {
+                                text: "?"
+                                //onClicked:
+                            }
                         }
                     }
 
                     FileListModel { id: fileModel }
-
-                    // Dialog {
-                    //     id: renameDialog
-                    //     modal: true
-                    //     title: qsTr("Переименовать")
-                    //     standardButtons: Dialog.Ok | Dialog.Cancel
-
-                    //     property string targetPath: ""
-                    //     property string targetName: ""
-
-                    //     x: (win.width - width) / 2
-                    //     y: (win.height - height) / 2
-                    //     width: 320
-
-                    //     contentItem: ColumnLayout {
-                    //         spacing: 10
-
-                    //         Label {
-                    //             text: qsTr("Новое имя:")
-                    //             color: Theme.textColor
-                    //         }
-
-                    //         TextField {
-                    //             id: renameField
-                    //             Layout.fillWidth: true
-                    //             text: renameDialog.targetName
-                    //             selectByMouse: true
-                    //         }
-                    //     }
-
-                    //     onOpened: renameField.forceActiveFocus()
-                    //     onAccepted: {
-                    //         const newName = renameField.text.trim()
-                    //         if (newName !== "") {
-                    //             console.log("Rename:", renameDialog.targetPath, "->", newName)
-                    //             // fileModel.rename(renameDialog.targetPath, newName)
-                    //         }
-                    //     }
-                    // }
-
-                    // Dialog {
-                    //     id: tagSelectDialog
-
-                    //     modal: true
-                    //     title: qsTr("Теги для: %1").arg(win.tagTargetName)
-                    //     standardButtons: Dialog.Ok | Dialog.Cancel
-                    //     x: (win.width - width) / 2
-                    //     y: (win.height - height) / 2
-                    //     width: 340
-
-                    //     onAccepted: win.confirmTagging()
-                    //     onRejected: win.cancelTagging()
-                    //     onClosed: if (win.tagSelectMode) win.cancelTagging()
-
-                    //     contentItem: ColumnLayout {
-                    //         spacing: 10
-
-                    //         Label {
-                    //             text: qsTr("Выберите один или несколько тегов:")
-                    //             color: Theme.textColor
-                    //             wrapMode: Text.WordWrap
-                    //             Layout.fillWidth: true
-                    //         }
-
-                    //         Flow {
-                    //             Layout.fillWidth: true
-                    //             Layout.preferredHeight: 160
-                    //             spacing: 6
-
-                    //             Repeater {
-                    //                 model: ThingModel.listOfThingies
-
-                    //                 delegate: Rectangle {
-                    //                     property bool selected: win.selectedTagIds.indexOf(model.id) !== -1
-                    //                     width: tagLabel.implicitWidth + 24
-                    //                     height: 30
-                    //                     radius: 15
-                    //                     color: selected ? Theme.accentColor : Theme.fieldBackground
-                    //                     border.color: Theme.borderColor
-                    //                     border.width: 1
-
-                    //                     Behavior on color { ColorAnimation { duration: 100 } }
-
-                    //                     Text {
-                    //                         id: tagLabel
-                    //                         anchors.centerIn: parent
-                    //                         text: model.name
-                    //                         color: selected ? "white" : Theme.textColor
-                    //                     }
-
-                    //                     MouseArea {
-                    //                         anchors.fill: parent
-                    //                         onClicked: win.toggleTagSelection(model.id)
-                    //                     }
-                    //                 }
-                    //             }
-                    //         }
-
-                    //         Label {
-                    //             text: qsTr("Выбрано тегов: %1").arg(win.selectedTagIds.length)
-                    //             font.pixelSize: 12
-                    //             color: "gray"
-                    //         }
-                    //     }
-                    // }
 
                     Rectangle {
                         id: fileListPanel
@@ -465,6 +360,7 @@ ApplicationWindow {
                                 clip: true
                                 spacing: 6
                                 model: fileModel
+                                property var selected_files: []
 
                                 delegate: Rectangle {
                                     id: card
@@ -475,9 +371,10 @@ ApplicationWindow {
                                     width: ListView.view.width
                                     height: 36
                                     radius: 8
-                                    color: ListView.isCurrentItem ? Theme.selectionColor : Theme.fieldBackground
-                                    border.color: ListView.isCurrentItem ? Theme.accentColor : Theme.borderColor
-                                    border.width: ListView.isCurrentItem ? 2 : 1
+                                    color: fileListView.selected_files.indexOf(path) !== -1 ? Theme.selectionColor : Theme.fieldBackground
+                                    border.color: fileListView.selected_files.indexOf(path) !== -1 ? Theme.accentColor : Theme.borderColor
+                                    border.width: fileListView.selected_files.indexOf(path) !== -1 ? 2 : 1
+
                                     scale: pressed ? 0.98 : 1.0
 
                                     Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
@@ -558,7 +455,7 @@ ApplicationWindow {
                                     }
 
                                     Menu {
-                                        id: ctxMenu
+                                        id: single_selection_menu
 
                                         property string currentPath: ""
                                         property string currentName: ""
@@ -567,37 +464,105 @@ ApplicationWindow {
                                         MenuItem {
                                             text: qsTr("Задать метки")
                                             onTriggered: {
-                                                console.log("Tag added for: ", ctxMenu.currentPath)
-                                                win.startTagging(ctxMenu.currentPath, ctxMenu.currentName)
+                                                console.log("Tag added for: ", fileListView.selected_files)
+                                                win.startTagging(fileListView.selected_files, single_selection_menu.currentName)
+                                                fileListView.selected_files = []
                                             }
                                         }
                                         MenuItem {
                                             text: qsTr("Открыть")
                                             onTriggered: {
-                                                if (ctxMenu.currentIsDir) {
-                                                    fileModel.setFolder(ctxMenu.currentPath)
-                                                    fileListView.tagInput.text = ctxMenu.currentPath
-                                                } 
-                                                else fileModel.openFile(ctxMenu.currentPath, win)
+                                                if (fileListView.selected_files.length <= 1)
+                                                {
+                                                    if (single_selection_menu.currentIsDir) 
+                                                    {
+                                                        fileModel.setFolder(single_selection_menu.currentPath)
+                                                        fileListView.tagInput.text = single_selection_menu.currentPath
+                                                    } 
+                                                    else fileModel.openFile(single_selection_menu.currentPath, win)
+                                                }
                                             }
                                         }
                                         MenuItem {
                                             text: qsTr("Открыть с помощью ...")
                                             onTriggered: {
-                                                if (ctxMenu.currentIsDir) {
-                                                    fileModel.setFolder(ctxMenu.currentPath)
-                                                    fileListView.tagInput.text = ctxMenu.currentPath
-                                                } 
-                                                else fileModel.openWith(ctxMenu.currentPath, win)
+                                                if (fileListView.selected_files.length <= 1)
+                                                {
+                                                    if (single_selection_menu.currentIsDir) 
+                                                    {
+                                                        fileModel.setFolder(single_selection_menu.currentPath)
+                                                        fileListView.tagInput.text = single_selection_menu.currentPath
+                                                    } 
+                                                    else fileModel.openWith(single_selection_menu.currentPath, win)
+                                                }
                                             }
                                         }
                                         MenuItem {
                                             text: qsTr("Переименовать")
-                                            onTriggered: win.startRename(ctxMenu.currentPath, ctxMenu.currentName)
+                                            onTriggered: 
+                                            {
+                                                if (fileListView.selected_files.length <= 1)
+                                                {
+                                                    win.startRename(single_selection_menu.currentPath, single_selection_menu.currentName)
+                                                }
+                                            }
+                                        }
+                                        MenuItem {
+                                            text: qsTr("Удалить все метки")
+                                            onTriggered: 
+                                            {
+                                                if (fileListView.selected_files.length <= 1)
+                                                {
+                                                    console.log("Delete all tags for: ", single_selection_menu.currentPath)
+                                                }
+                                            }
                                         }
                                         MenuItem {
                                             text: qsTr("Удалить")
-                                            onTriggered: console.log("Delete: ", ctxMenu.currentPath)
+                                            onTriggered: 
+                                            {
+                                                if (fileListView.selected_files.length <= 1)
+                                                {
+                                                    console.log("Delete file with path: ", single_selection_menu.currentPath)
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Menu {
+                                        id: multi_selection_menu
+
+                                        property string currentPath: ""
+                                        property string currentName: ""
+                                        property bool currentIsDir: false
+
+                                        MenuItem 
+                                        {
+                                            text: qsTr("Задать метки")
+                                            onTriggered: 
+                                            {
+                                                console.log("Tag added for: ", fileListView.selected_files)
+                                                win.startTagging(fileListView.selected_files, multi_selection_menu.currentName)
+                                                fileListView.selected_files = []
+                                            }
+                                        }
+                                        MenuItem 
+                                        {
+                                            text: qsTr("Удалить все метки")
+                                            onTriggered: 
+                                            {
+                                                if (fileListView.selected_files.length <= 1)
+                                                    console.log("Delete all tags for: ", multi_selection_menu.currentPath)
+                                            }
+                                        }
+                                        MenuItem 
+                                        {
+                                            text: qsTr("Удалить")
+                                            onTriggered: 
+                                            {
+                                                if (fileListView.selected_files.length <= 1)
+                                                    console.log("Delete file with path: ", multi_selection_menu.currentPath)
+                                            }
                                         }
                                     }
 
@@ -605,22 +570,60 @@ ApplicationWindow {
                                         anchors.fill: parent
                                         acceptedButtons: Qt.LeftButton | Qt.RightButton
 
-                                        onPressed: {
-                                            if (mouse.button === Qt.RightButton) {
+                                        onPressed: function(mouse) 
+                                        {
+                                            if (mouse.button === Qt.RightButton) 
+                                            {
                                                 card.pressed = false
-                                                ctxMenu.currentPath = path
-                                                ctxMenu.currentName = name
-                                                ctxMenu.currentIsDir = isDir
-                                                ctxMenu.popup(card, mouse.x, mouse.y + 6)
+                                                if (fileListView.selected_files.length > 1) 
+                                                {
+                                                    multi_selection_menu.currentPath = path
+                                                    multi_selection_menu.currentName = name
+                                                    multi_selection_menu.currentIsDir = isDir
+                                                    multi_selection_menu.popup(card, mouse.x, mouse.y + 6)
+                                                } 
+                                                else 
+                                                {
+                                                    single_selection_menu.currentPath = path
+                                                    single_selection_menu.currentName = name
+                                                    single_selection_menu.currentIsDir = isDir
+                                                    single_selection_menu.popup(card, mouse.x, mouse.y + 6)
+                                                }
                                             } 
                                             else if (mouse.button === Qt.LeftButton) card.pressed = true
                                         }
 
-                                        onReleased: if (mouse.button === Qt.LeftButton) card.pressed = false
+                                        onReleased: function(mouse)
+                                        {
+                                            if (mouse.button === Qt.LeftButton) card.pressed = false
+                                        }
 
-                                        onClicked: if (mouse.button === Qt.LeftButton) fileListView.currentIndex = index
-                                        onDoubleClicked: {
-                                            if (mouse.button === Qt.LeftButton) { 
+                                        onClicked: function(mouse)
+                                        {
+                                            if ((mouse.button == Qt.LeftButton) && (mouse.modifiers & Qt.ControlModifier))
+                                            {
+                                                var ind = fileListView.selected_files.indexOf(path)
+                                                if (ind !== -1) 
+                                                {
+                                                    fileListView.selected_files.splice(ind, 1)
+                                                    console.log("unselected file: " + path)
+                                                } 
+                                                else 
+                                                {
+                                                    fileListView.selected_files.push(path)
+                                                    console.log("selected files: " + fileListView.selected_files)
+                                                }
+                                                fileListView.selected_files = fileListView.selected_files.slice()
+                                            }
+                                            else if (mouse.button === Qt.LeftButton) 
+                                            {
+                                                fileListView.currentIndex = index
+                                            }
+                                        }
+                                        onDoubleClicked: function(mouse)
+                                        {
+                                            if (mouse.button === Qt.LeftButton) 
+                                            { 
                                                 if (isDir) {
                                                     fileListView.tagInput.text = fileListView.tagInput.text + name + "/"
                                                     fileModel.setFolder(fileListView.tagInput.text)
@@ -628,13 +631,17 @@ ApplicationWindow {
                                                 else fileModel.openFile(path)
                                             }
                                         }
-                                        onCanceled: card.pressed = false
+                                        onCanceled: 
+                                        {
+                                            card.pressed = false
+                                        }
                                     }
                                 }
                             }
 
                             Rectangle {
                                 anchors.centerIn: fileListView
+                                //anchors.centerIn: fileListPanel
                                 visible: fileListView.count === 0
                                 width: 220
                                 height: 60
@@ -655,6 +662,64 @@ ApplicationWindow {
                             }
                         }
                     }    
+                }
+
+                Dialog {
+                    id: settings_dialog
+
+                    modal: true
+                    title: qsTr("Настройки")
+                    standardButtons: Dialog.Cancel | Dialog.Apply
+                    x: (win.width - width) / 2
+                    y: (win.height - height) / 2
+                    width: 340
+
+                    onRejected: win.settings_mode = false
+                    //onApplied:
+                    //onClosed: if (win.tagSelectMode) win.cancelTagging()
+
+                    contentItem: ColumnLayout {
+                        spacing: 10
+
+                        Example.ThemedButton {
+                            text: Theme.isDarkMode ? qsTr("Установить светлую тему") : qsTr("Установить тёмную тему")
+                            onClicked: Theme.isDarkMode = !Theme.isDarkMode
+                        }
+
+                        Example.ThemedButton {
+                            text: Translator.language === "en" ? qsTr("Изменить язык на русский") : qsTr("Изменить язык на английский")
+                            onClicked: Translator.language = Translator.language === "en" ? "ru" : "en"
+                        }
+
+                        Flow {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 160
+                            spacing: 6
+
+                            Repeater {
+                                model: ThingModel.listOfThingies
+
+                                delegate: Rectangle {
+                                    width: tagLabel.implicitWidth + 24
+                                    height: 30
+                                    radius: 15
+                                    color: Theme.fieldBackground
+                                    border.color: Theme.borderColor
+                                    border.width: 1
+
+                                    Behavior on color { ColorAnimation { duration: 100 } }
+
+                                    Text {
+                                        id: tagLabel
+
+                                        anchors.centerIn: parent
+                                        text: model.name
+                                        color: Theme.textColor
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

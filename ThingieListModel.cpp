@@ -90,84 +90,115 @@ bool ThingieListModel::removeThing(int tagId)
     return true;
 }
 
-bool ThingieListModel::assignTagsToFile(const QString &path, const QVariantList &tagIds)
+bool ThingieListModel::assignTagsToFile(const QList<QString> &paths, const QVariantList &tagIds)
 {
-    if (path.isEmpty()) return false;
+    if (paths.isEmpty()) return false;
 
     QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
     db.setDatabaseName("test.db");
 
-    if (!db.open()) {
+    if (!db.open()) 
+    {
         qWarning() << "DB open failed: " << db.lastError().text();
         return false;
     }
 
-    QSqlQuery selectFile(db);
-    selectFile.prepare("SELECT id FROM file WHERE path = :path");
-    selectFile.bindValue(":path", path);
-    if (!selectFile.exec()) {
-        qWarning() << "SELECT file failed: " << selectFile.lastError().text();
-        return false;
-    }
-
-    int fileId = -1;
-    if (selectFile.next()) fileId = selectFile.value(0).toInt();
-    else {
-        QSqlQuery insertFile(db);
-        insertFile.prepare("INSERT INTO file(path) VALUES(:path)");
-        insertFile.bindValue(":path", path);
-        if (!insertFile.exec()) {
-            qWarning() << "INSERT file failed: " << insertFile.lastError().text();
-            return false;
-        }
-        fileId = insertFile.lastInsertId().toInt();
-    }
-
     QSet<int> desiredTagIds;
-    for (const QVariant &tagIdVar : tagIds) {
+    for (const QVariant &tagIdVar : tagIds) 
+    {
         const int tagId = tagIdVar.toInt();
         if (tagId >= 0) desiredTagIds.insert(tagId);
     }
+    QVector<QSet<int>> existingTagIds;
+    QList<int> existingFileIds;   
 
-    QSqlQuery selectExisting(db);
-    selectExisting.prepare("SELECT tag_id FROM tag_file WHERE file_id = :fileId");
-    selectExisting.bindValue(":fileId", fileId);
-    if (!selectExisting.exec()) {
-        qWarning() << "SELECT existing tag_file failed: " << selectExisting.lastError().text();
-        return false;
+    for (int i = 0; i < paths.length(); i++)
+    {
+        QSqlQuery selectFile(db);
+        selectFile.prepare("SELECT id FROM file WHERE path = :path");
+        selectFile.bindValue(":path", paths[i]);
+        if (!selectFile.exec()) 
+        {
+            qWarning() << "SELECT file failed: " << selectFile.lastError().text();
+            return false;
+        }
+
+        int fileId = -1;
+        if (selectFile.next()) fileId = selectFile.value(0).toInt();
+        else 
+        {
+            QSqlQuery insertFile(db);
+            insertFile.prepare("INSERT INTO file(path) VALUES(:path)");
+            insertFile.bindValue(":path", paths[i]);
+            if (!insertFile.exec()) 
+            {
+                qWarning() << "INSERT file failed: " << insertFile.lastError().text();
+                return false;
+            }
+            fileId = insertFile.lastInsertId().toInt();
+        }
+        existingFileIds.push_back(fileId);
+
+        QSqlQuery selectExisting(db);
+        selectExisting.prepare("SELECT tag_id FROM tag_file WHERE file_id = :fileId");
+        selectExisting.bindValue(":fileId", fileId);
+        if (!selectExisting.exec()) 
+        {
+            qWarning() << "SELECT existing tag_file failed: " << selectExisting.lastError().text();
+            return false;
+        }
+
+        int set_ind = existingTagIds.isEmpty()? 0 : existingTagIds.length();
+        existingTagIds.push_back(QSet<int>{});
+        while (selectExisting.next())
+            existingTagIds[set_ind].insert(selectExisting.value(0).toInt());
     }
 
-    QSet<int> existingTagIds;
-    while (selectExisting.next())
-        existingTagIds.insert(selectExisting.value(0).toInt());
-
-    const QSet<int> toRemove = existingTagIds - desiredTagIds;
-    for (int tagId : toRemove) {
-        QSqlQuery deleteLink(db);
-        deleteLink.prepare("DELETE FROM tag_file WHERE tag_id = :tagId AND file_id = :fileId");
-        deleteLink.bindValue(":tagId", tagId);
-        deleteLink.bindValue(":fileId", fileId);
-        if (!deleteLink.exec())
-            qWarning() << "DELETE tag_file failed: " << deleteLink.lastError().text();
+    ///
+    if (existingTagIds.isEmpty()) return false;
+    int min_length = existingTagIds[0].count();
+    for (int i = 0; i < existingTagIds.length(); i++)
+    {
+        if (existingTagIds[i].count() < min_length)
+        {
+            min_length = existingTagIds[i].count();
+            existingTagIds.swapItemsAt(i, 0);
+        }
     }
+    for (int i = 1; i < existingTagIds.count(); ++i)
+        existingTagIds[0] &= existingTagIds[i]; 
 
-    const QSet<int> toAdd = desiredTagIds - existingTagIds;
-    for (int tagId : toAdd) {
-        QSqlQuery insertTagFile(db);
-        insertTagFile.prepare("INSERT INTO tag_file(tag_id, file_id) VALUES(:tagId, :fileId)");
-        insertTagFile.bindValue(":tagId", tagId);
-        insertTagFile.bindValue(":fileId", fileId);
-        if (!insertTagFile.exec())
-            qWarning() << "INSERT tag_file failed: " << insertTagFile.lastError().text();
+    const QSet<int> toRemove = existingTagIds[0] - desiredTagIds;
+    const QSet<int> toAdd = desiredTagIds - existingTagIds[0];
+    for (int i = 0; i < existingFileIds.length(); i++)
+    {
+        for (int tagId : toRemove) 
+        {
+            QSqlQuery deleteLink(db);
+            deleteLink.prepare("DELETE FROM tag_file WHERE tag_id = :tagId AND file_id = :fileId");
+            deleteLink.bindValue(":tagId", tagId);
+            deleteLink.bindValue(":fileId", existingFileIds[i]);
+            if (!deleteLink.exec())
+                qWarning() << "DELETE tag_file failed: " << deleteLink.lastError().text();
+        }
+        for (int tagId : toAdd) 
+        {
+            QSqlQuery insertTagFile(db);
+            insertTagFile.prepare("INSERT INTO tag_file(tag_id, file_id) VALUES(:tagId, :fileId)");
+            insertTagFile.bindValue(":tagId", tagId);
+            insertTagFile.bindValue(":fileId", existingFileIds[i]);
+            if (!insertTagFile.exec())
+                qWarning() << "INSERT tag_file failed: " << insertTagFile.lastError().text();
+        }
     }
 
     return true;
 }
 
-QVariantList ThingieListModel::tagIdsForFile(const QString &path) const
+QSet<int> ThingieListModel::tagIdsForFile(const QList<QString> &paths) const
 {
-    QVariantList result;
-    if (path.isEmpty()) return result;
+    QSet<int> result;
+    if (paths.isEmpty()) return result;
 
     QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
     db.setDatabaseName("test.db");
@@ -177,21 +208,44 @@ QVariantList ThingieListModel::tagIdsForFile(const QString &path) const
         return result;
     }
 
-    QSqlQuery query(db);
-    query.prepare(
-        "SELECT tag_file.tag_id FROM tag_file "
-        "JOIN file ON file.id = tag_file.file_id "
-        "WHERE file.path = :path"
-    );
-    query.bindValue(":path", path);
+    QVector<QSet<int>> tags_ids_sets;
+    for (int i = 0; i < paths.length(); i++)
+    {
+        QSqlQuery query(db);
+        query.prepare
+        (
+            "SELECT tag_file.tag_id FROM tag_file "
+            "JOIN file ON file.id = tag_file.file_id "
+            "WHERE file.path = :paths"
+        );
+        query.bindValue(":paths", paths[i]);
 
-    if (!query.exec()) {
-        qWarning() << "SELECT tagIdsForFile failed: " << query.lastError().text();
-        return result;
+        if (!query.exec()) 
+        {
+            qWarning() << "SELECT tagIdsForFile failed: " << query.lastError().text();
+            return result;
+        }
+
+        int set_ind = tags_ids_sets.isEmpty()? 0 : tags_ids_sets.length();
+        tags_ids_sets.push_back(QSet<int>{});
+        while (query.next())
+            tags_ids_sets[set_ind].insert(query.value(0).toInt());
     }
 
-    while (query.next())
-        result.append(query.value(0).toInt());
+    if (tags_ids_sets.isEmpty()) return result;
+    int min_length = tags_ids_sets[0].count();
+    for (int i = 0; i < tags_ids_sets.length(); i++)
+    {
+        if (tags_ids_sets[i].count() < min_length)
+        {
+            min_length = tags_ids_sets[i].count();
+            tags_ids_sets.swapItemsAt(i, 0);
+        }
+    }
+
+    result = tags_ids_sets[0];
+    for (int i = 1; i < tags_ids_sets.count(); ++i)
+        result &= tags_ids_sets[i];
 
     return result;
 }

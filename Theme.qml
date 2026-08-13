@@ -7,13 +7,13 @@ QtObject {
     property bool isDarkMode: false
     property bool isTagSelectMode: false
 
-    readonly property color lightBg: "#FFFFFF"
-    readonly property color lightText: "#000000"
+    readonly property color lightBg: "#F4F4F4"
+    readonly property color lightText: "#142528"
     readonly property color lightFieldBg: "#F0F0F0"
     readonly property color lightBorder: "#CCCCCC"
 
     readonly property color darkBg: "#1E1E1E"
-    readonly property color darkText: "#FFFFFF"
+    readonly property color darkText: "#F4F4F4"
     readonly property color darkFieldBg: "#2D2D2D"
     readonly property color darkBorder: "#444444"
 
