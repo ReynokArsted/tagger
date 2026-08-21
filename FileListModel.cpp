@@ -10,15 +10,51 @@
 #include <QSqlQuery>
 #include <QSqlError>
 #include <Windows.h>
+#include <QDirIterator>
 
 #include "FileListModel.h"
+
+QVariantList FileListModel::getCandidates(QString dirPath, QString prefix)
+{
+    QVariantList out;
+    dirPath = normalizeDirPath(dirPath);
+    QDir dir(dirPath);
+    if (!dir.exists())
+        return out;
+
+    // add hidden/system files?
+    auto infos = dir.entryInfoList(QDir::AllEntries | QDir::NoDotAndDotDot, QDir::Name);
+
+    for (const auto &info : infos) {
+        QString name = info.fileName();
+        if (!prefix.isEmpty() && !name.startsWith(prefix, Qt::CaseSensitive))
+            continue;
+
+        QVariantMap m;
+        m["name"] = name;
+        m["isDir"] = info.isDir();
+        m["path"] = info.absoluteFilePath();
+        out.append(m);
+    }
+
+    qDebug() << "cand_list:" << out;
+    return out;
+}
+
+QString FileListModel::normalizeDirPath(const QString& s)
+{
+    QString t = s;
+    t.replace("\\", "/");
+    return t;
+}
 
 QSet<QString> get_tag_set (QString tg)
 {
     QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
     db.setDatabaseName("test.db");
 
-    if (!db.open()) {
+    if (!db.open()) 
+    {
         qWarning() << "DB open failed:" << db.lastError().text();
         return QSet<QString>();
     }
@@ -142,6 +178,11 @@ QSet<QString> intersect_op (QSet<QString> set1, QSet<QString> set2)
     return result;
 }
 
+// void take_order(*op_list)
+// {
+//     for (int i = 0; i < op_list.)
+// }
+
 FileListModel::FileListModel(QObject* parent)
     : QAbstractListModel(parent) {}
 
@@ -242,7 +283,7 @@ void FileListModel::openFile(const QString &filePath, QQuickWindow *window)
             sei.nShow = SW_SHOWNORMAL;
             ShellExecuteExW(&sei);
         }
-        else qWarning() << "ERROR: ShellExecuteExW failed. error code = " << err;
+        else qWarning() << "ERROR: ShellExecuteExW failed. error code =" << err;
     }
 }
 
@@ -256,12 +297,32 @@ bool check_tag(QString tag)
     return true;
 }
 
+void FileListModel::showCandidates(const QVariantList &candidates)
+{
+    beginResetModel();
+    m_items.clear();
+    for (int i = 0; i < candidates.length(); i++) 
+    {
+        QString q_path = candidates[i].toMap().value("path").toString();
+        qDebug() << "cand:" << q_path;
+        QFileInfo info(q_path);
+        Item query_file;
+        query_file.path = q_path;
+        query_file.name = info.fileName();
+        query_file.path = info.absoluteFilePath();
+        query_file.isDir = info.isDir();
+        m_items.push_back(std::move(query_file));
+    }
+    endResetModel();
+    //emit folderChanged();
+}
+
 void FileListModel::setFolder(const QString &folderPath) 
 {
     QString temp = folderPath;
     temp = temp.simplified();
 
-    QString ref = "+-\\*()";
+    QString ref = "()*+\\";
     int operation_count = 0;
 
     // check brace closing
@@ -388,6 +449,11 @@ void FileListModel::setFolder(const QString &folderPath)
                 temp_list.insert(i == 0? 0 : i - 1, "##");
                 i++;
             }
+            if (i + 1 != temp_list.length()  && temp_list[i].contains("#") && temp_list[i + 1].contains("#"))
+            {
+                temp_list.insert(i + 1, "*");
+                i++;
+            }
             last_tag_index = i;
         }
         else path_indicator = true;
@@ -400,6 +466,7 @@ void FileListModel::setFolder(const QString &folderPath)
         endResetModel();
         return;
     }
+    qDebug() << "result temp_list:" << temp_list;
     qDebug() << "last_tag_index =" << last_tag_index;
 
     QVector<QVector<int>> operations_list;
@@ -426,10 +493,103 @@ void FileListModel::setFolder(const QString &folderPath)
                 }
                 else in_brace = true;
             }
-            else operations_list[current_brace_pair].push_back(i);
+            else 
+            {
+                //operations_list[current_brace_pair].push_back(i);
+
+                // #iron + #cat * #electronics + #chest
+                // #iron + #cat * #electronics \ #chest
+
+                // take operation order
+                if (temp_list[i] == "\\" && temp_list[i - 1] == "##")
+                {
+                    qDebug() << "##\\";
+                    operations_list[current_brace_pair].push_back(i);
+                    qDebug() << "res:" << operations_list[current_brace_pair];
+                }
+                else if (temp_list[i] == "\\" && temp_list[i - 1] != "##")
+                {
+                    qDebug() << "\\";
+                    operations_list[current_brace_pair].push_front(i);
+                    qDebug() << "res:" << operations_list[current_brace_pair];
+                }
+                else if (temp_list[i] == "*")
+                {
+                    qDebug() << "*";
+                    int j = operations_list[current_brace_pair].length() - 1;
+                    bool jump_flag = false;
+                    while (j >= 0 && !jump_flag)
+                    { 
+                        qDebug() << "in * while";
+                        if (temp_list[operations_list[current_brace_pair][j]] == "+" || 
+                            (temp_list[operations_list[current_brace_pair][j]] == "\\" && 
+                                temp_list[operations_list[current_brace_pair][j] - 1] != "##"))
+                        {
+                            jump_flag = true;
+                            if (j != (operations_list[current_brace_pair].length() - 1))
+                            {
+                                operations_list[current_brace_pair].insert(j + 1, i);
+                                qDebug() << "res:" << operations_list[current_brace_pair];
+                            }
+                            else
+                            { 
+                                operations_list[current_brace_pair].push_back(i);
+                                qDebug() << "res:" << operations_list[current_brace_pair];
+                            }
+                        }
+                        j--;
+                    }
+                    if (j < 0 && !jump_flag) 
+                    {
+                        operations_list[current_brace_pair].push_front(i);
+                        qDebug() << "res:" << operations_list[current_brace_pair];
+                    }
+                }
+                else if (temp_list[i] == "+")
+                {
+                    qDebug() << "+";
+                    int j = operations_list[current_brace_pair].length() - 1;
+                    qDebug() << "start j =" << j;
+                    qDebug() << "start current_brace_pair =" << current_brace_pair;
+                    bool jump_flag = false;
+                    while (j >= 0 && !jump_flag)
+                    {
+                        qDebug() << "in + while";
+                        qDebug() << "->" << temp_list[operations_list[current_brace_pair][j]];
+                        if (temp_list[operations_list[current_brace_pair][j]] == "\\" && 
+                                temp_list[operations_list[current_brace_pair][j] - 1] != "##")
+                        {
+                            jump_flag = true;
+                            if (j != (operations_list[current_brace_pair].length() - 1))
+                            {
+                                operations_list[current_brace_pair].insert(j + 1, i);
+                                qDebug() << "res:" << operations_list[current_brace_pair];
+                            }
+                            else 
+                            {
+                                operations_list[current_brace_pair].push_back(i);
+                                qDebug() << "res:" << operations_list[current_brace_pair];
+                            }
+                        }
+                        j--;
+                    }
+                    if (j < 0 && !jump_flag) 
+                    {
+                        operations_list[current_brace_pair].push_front(i);
+                        qDebug() << "res:" << operations_list[current_brace_pair];
+                    }
+                }
+                else 
+                {
+                    qDebug() << "else op";
+                    operations_list[current_brace_pair].push_front(i);
+                    qDebug() << "res:" << operations_list[current_brace_pair];
+                }
+            }
         }
     }
     qDebug() << "operations_list:" << operations_list;
+    //take_order(&operations_list);
 
     QVector<QSet<QString>> results;
     int i = operations_list.length() - 1, j = -1;
@@ -697,9 +857,15 @@ void FileListModel::setFolder(const QString &folderPath)
     emit folderChanged();
 }
 
-QString FileListModel::parentFolder() const 
+QString FileListModel::parent_folder() const 
 {
     QDir dir(m_folder);
     if (dir.cdUp()) return dir.absolutePath();
     return {};
+}
+
+QString FileListModel::current_folder() const 
+{
+    QDir dir(m_folder);
+    return dir.absolutePath();
 }

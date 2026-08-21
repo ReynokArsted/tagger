@@ -17,7 +17,7 @@ ApplicationWindow {
     minimumWidth: 500
     minimumHeight: 350
     visible: true
-    title: qsTr("tagger")
+    title: "tagka"
     color: "transparent"
 
     flags: Qt.Window
@@ -36,6 +36,88 @@ ApplicationWindow {
     property list<string> tagTargetPaths: []
     property var selectedTagIds: []
 
+///
+    property var candidates: []   // массив: {name, isDir}
+    property string currentDirPath: ""
+    property string currentPrefix: ""
+
+    // Разделитель для вставки: если пользователь вводил '\', сохраняем '\', иначе '/'
+    function detectSep(input) {
+        // если во вводе есть обратные слэши — используем '\', иначе '/'
+        return (input.indexOf("\\") !== -1) ? "\\" : "/";
+    }
+
+    function normalizeForLogic(s) {
+        return (s || "").replace(/\\/g, "/");
+    }
+
+    // Ищем последнюю '/' и режем: dirPath (включая последний '/') + prefix
+    function splitDirAndPrefix(normInput) {
+        if (normInput.length === 0)
+            return { dirPath: "", prefix: "" }
+
+        let lastSlash = normInput.lastIndexOf("/")
+        if (lastSlash === -1)
+            return { dirPath: "", prefix: normInput }
+
+        return {
+            dirPath: normInput.slice(0, lastSlash + 1),
+            prefix: normInput.slice(lastSlash + 1)
+        }
+    }
+
+    function commonPrefixFromCandidates(cands, prefix) {
+        // общий префикс по полям name, но начинаем с текущего prefix (чтобы LCP не "съехал")
+        if (!cands || cands.length === 0)
+            return ""
+
+        let cp = cands[0].name
+        for (let i = 1; i < cands.length; i++) {
+            const s = cands[i].name
+            while (cp.length > 0 && !s.startsWith(cp))
+                cp = cp.slice(0, cp.length - 1)
+            if (cp.length === 0) break
+        }
+        // гарантируем, что cp как минимум prefix (иначе это не completion)
+        // но обычно при фильтрации это так и будет:
+        if (cp.length < prefix.length)
+            return prefix
+
+        return cp
+    }
+
+    function refreshCandidates() {
+        const temp_input = input.text
+        const sep = detectSep(temp_input)
+        const norm = normalizeForLogic(temp_input)
+
+        const sp = splitDirAndPrefix(norm)
+        currentDirPath = sp.dirPath
+        currentPrefix = sp.prefix
+
+        // Важно: если dirPath пустой, вам нужно решить, что считать текущей директорией.
+        // Для простоты ниже: если пусто — считаем, что пользователь имел в виду "корень" вашего приложения.
+        // Лучше: реализовать в C++ отдельную функцию "getCandidatesForRelative" или передавать рабочую директорию.
+        if (currentDirPath === "") {
+            // можно отключить completion или показать пусто
+            candidates = []
+            //popup.opened = false
+            return
+        }
+
+        candidates = fileModel.getCandidates(currentDirPath, currentPrefix)
+        console.log("currentDirPath: " + currentDirPath)
+        console.log("currentPrefix: " + currentPrefix)
+
+        if (candidates.length > 0) {
+            //popup.opened = true
+            //fileModel.setFolder(currentDirPath);
+            fileModel.showCandidates(candidates);
+        } else {
+            //popup.opened = false
+        }
+    }
+///
     function startTagging(paths, name) {
         tagTargetPaths = paths
         selectedTagIds = ThingModel.listOfThingies.tagIdsForFile(paths)
@@ -216,7 +298,7 @@ ApplicationWindow {
                         clip: true
 
                         Label {
-                            text: qsTr("Вводи метки:")
+                            //text: qsTr("Вводи метки:")
                             color: Theme.textColor
                             font.pixelSize: 14
                             anchors.horizontalCenter: parent.horizontalCenter
@@ -234,28 +316,128 @@ ApplicationWindow {
                                 border.width: 1
                                 radius: 4
 
+                                property bool hasText: input.length > 0
+
+                                Text {
+                                    text: "Поиск?"
+                                    font.pixelSize: 16
+                                    color: "#888"
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 8
+                                    visible: !parent.hasText
+                                }
+
+                                
+
                                 TextInput {
                                     id: input
 
                                     anchors.fill: parent
                                     anchors.margins: 8
-                                    text: qsTr("Поле ввода")
                                     color: Theme.textColor
                                     font.pixelSize: 16
                                     horizontalAlignment: Text.AlignLeft
                                     clip: true
 
-                                    onTextChanged: console.log(`Text has changed to: ${text}`)
+                                    //onTextChanged: console.log(`Text has changed to: ${text}`)
                                     onAccepted: fileModel.setFolder(input.text)
+///
+                                    //placeholderText: "Например: C:/Windows/Sys или D:/Proj/…"
+                                    onTextChanged: refreshCandidates
+
+                                    // Для плавности: при фокусе обновлять кандидаты
+                                    onActiveFocusChanged: { if (activeFocus) refreshCandidates() }
+
+                                    Keys.onPressed: (event) => {
+                                        const k = event.key
+
+                                        if (k === Qt.Key_Tab) {
+                                            // Completion по common-prefix
+                                            event.accepted = true
+
+                                            if (!candidates || candidates.length === 0)
+                                                return
+
+                                            const temp_input = input.text
+                                            const sep = detectSep(temp_input)
+                                            const norm = normalizeForLogic(temp_input)
+
+                                            const sp = splitDirAndPrefix(norm)
+                                            const dirPathNorm = sp.dirPath
+                                            const prefix = sp.prefix
+
+                                            const cp = commonPrefixFromCandidates(candidates, prefix)
+                                            if (!cp || cp.length === 0)
+                                                return
+
+                                            // вставляем dirPathNorm + cp, приводя разделители обратно под выбор пользователя:
+                                            // dirPathNorm в логике на '/', заменим обратно на sep
+                                            //const dirPathToUse = dirPathNorm.replaceAll("/", sep)
+                                            const dirPathToUse = dirPathNorm.split("/").join(sep)
+
+                                            input.text = dirPathToUse + cp
+
+                                            // Если cp совпал с единственным кандидатом и это папка — дописываем '/'
+                                            if (candidates.length === 1) {
+                                                const cand = candidates[0]
+                                                if (cand.isDir) {
+                                                    // если строка не заканчивается разделителем — дописать
+                                                    // const needSep = input.text.endsWith(sep) ? "" : sep
+                                                    // input.text = input.text + needSep + (sep) // один лишний может получиться?
+
+                                                    // Исправим аккуратно: просто добавим один sep если не заканчивается
+                                                    if (!input.text.endsWith(sep))
+                                                        input.text += sep
+                                                }
+                                            }
+
+                                            // обновить popup под новое значение
+                                            refreshCandidates()
+                                            return
+                                        }
+
+                                        if (k === Qt.Key_Return || k === Qt.Key_Enter) {
+                                            // Подтверждение: первый кандидат (или ничего)
+                                            if (candidates && candidates.length > 0) {
+                                                event.accepted = true
+                                                const temp_input = input.text
+                                                const sep = detectSep(temp_input)
+                                                const norm = normalizeForLogic(temp_input)
+                                                const sp = splitDirAndPrefix(norm)
+
+                                                //const dirPathToUse = sp.dirPath.replaceAll("/", sep)
+                                                const dirPathToUse = sp.dirPath.split("/").join(sep)
+
+                                                const cand = candidates[0]
+
+                                                input.text = dirPathToUse + cand.name
+                                                if (cand.isDir) {
+                                                    if (!input.text.endsWith(sep))
+                                                        input.text += sep
+                                                }
+                                                refreshCandidates()
+                                            }
+                                            return
+                                        }
+
+                                        if (k === Qt.Key_Escape) {
+                                            //popup.opened = false
+                                            event.accepted = true
+                                            return
+                                        }
+                                    }
+///
                                 }
                             }
 
-                            Example.ThemedButton {
+                            Example.ThemedButton 
+                            {
                                 text: qsTr("..")
                                 Layout.preferredWidth: 40
                                 Layout.preferredHeight: 40
                                 onClicked: {
-                                    const p = fileModel.parentFolder()
+                                    const p = fileModel.parent_folder()
                                     if (p !== "" && fileModel.hasFolder) {
                                         fileModel.setFolder(p)
                                         input.text = p
@@ -263,14 +445,16 @@ ApplicationWindow {
                                 }
                             }
 
-                            Example.ThemedButton {
+                            Example.ThemedButton 
+                            {
                                 text: qsTr("+")
                                 Layout.preferredWidth: 40
                                 Layout.preferredHeight: 40
                                 onClicked: ThingModel.listOfThingies.addThing(input.text)
                             }
 
-                            Example.ThemedButton {
+                            Example.ThemedButton 
+                            {
                                 visible: win.tagSelectMode ? true : false
                                 text: "V"
                                 Layout.preferredWidth: 40
@@ -282,7 +466,8 @@ ApplicationWindow {
                                 }
                             }
 
-                            Example.ThemedButton {
+                            Example.ThemedButton 
+                            {
                                 visible: win.tagSelectMode ? true : false
                                 text: qsTr("X")
                                 Layout.preferredWidth: 40
@@ -291,14 +476,16 @@ ApplicationWindow {
                             }
                         }
 
-                        Label {
+                        Label 
+                        {
                             text: qsTr("Текущий ввод: %1").arg(input.text)
                             font.pixelSize: 12
                             color: "gray"
                             anchors.horizontalCenter: parent.horizontalCenter
                         }
 
-                        Example.ThingGrid {
+                        Example.ThingGrid 
+                        {
                             id: g
 
                             Layout.fillWidth: true
@@ -310,12 +497,15 @@ ApplicationWindow {
                             dragOverlay: dragOverlay
                         }
                         
-                        RowLayout {
-                            Example.ThemedButton {
+                        RowLayout 
+                        {
+                            Example.ThemedButton 
+                            {
                                 text: "⚙"
                                 onClicked: win.settings_mode = true
                             }
-                            Example.ThemedButton {
+                            Example.ThemedButton 
+                            {
                                 text: "?"
                                 //onClicked:
                             }
@@ -625,8 +815,18 @@ ApplicationWindow {
                                             if (mouse.button === Qt.LeftButton) 
                                             { 
                                                 if (isDir) {
-                                                    fileListView.tagInput.text = fileListView.tagInput.text + name + "/"
-                                                    fileModel.setFolder(fileListView.tagInput.text)
+                                                    const p = fileModel.current_folder()
+                                                    console.log("current folder = " + p);
+                                                    if (p.endsWith("/"))
+                                                    {
+                                                        fileListView.tagInput.text = p + name + "/"
+                                                        fileModel.setFolder(p + name + "/")
+                                                    }
+                                                    else
+                                                    {
+                                                        fileListView.tagInput.text = p + "/" + name + "/"
+                                                        fileModel.setFolder(p + "/" + name + "/")
+                                                    }
                                                 } 
                                                 else fileModel.openFile(path)
                                             }
