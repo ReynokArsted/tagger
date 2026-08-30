@@ -50,16 +50,25 @@ QString FileListModel::normalizeDirPath(const QString& s)
 
 QSet<QString> get_tag_set (QString tg)
 {
-    QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
-    db.setDatabaseName("test.db");
+    // QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
+    // db.setDatabaseName("test.db");
 
-    if (!db.open()) 
+    // if (!db.open()) 
+    // {
+    //     qWarning() << "DB open failed:" << db.lastError().text();
+    //     return QSet<QString>();
+    // }
+
+    // QSqlQuery query(db);
+
+    QSqlDatabase db = QSqlDatabase::database("app_connection");
+    if (!db.isOpen()) 
     {
-        qWarning() << "DB open failed:" << db.lastError().text();
+        qWarning() << "ERROR: database is not open";
         return QSet<QString>();
     }
-
     QSqlQuery query(db);
+
     if (tg == "##")
         query.prepare("SELECT file.path FROM tag_file JOIN file ON tag_file.file_id = file.id GROUP BY file.path");
     else 
@@ -70,7 +79,7 @@ QSet<QString> get_tag_set (QString tg)
 
     if (!query.exec()) 
     {
-        qWarning() << "SELECT tag failed:" << query.lastError().text();
+        qWarning() << "ERROR: select tag failed:" << query.lastError().text();
         return QSet<QString>();
     }
 
@@ -177,11 +186,6 @@ QSet<QString> intersect_op (QSet<QString> set1, QSet<QString> set2)
     QSet<QString> result = set1.intersect(set2);
     return result;
 }
-
-// void take_order(*op_list)
-// {
-//     for (int i = 0; i < op_list.)
-// }
 
 FileListModel::FileListModel(QObject* parent)
     : QAbstractListModel(parent) {}
@@ -782,21 +786,29 @@ void FileListModel::setFolder(const QString &folderPath)
 
         if (results.isEmpty())
         {
-            QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
-            db.setDatabaseName("test.db");
+            // QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
+            // db.setDatabaseName("test.db");
 
-            if (!db.open()) 
+            // if (!db.open()) 
+            // {
+            //     qWarning() << "DB open failed:" << db.lastError().text();
+            //     return;
+            // }
+
+            // QSqlQuery query(db);
+            QSqlDatabase db = QSqlDatabase::database("app_connection");
+            if (!db.isOpen()) 
             {
-                qWarning() << "DB open failed:" << db.lastError().text();
+                qWarning() << "ERROR: database is not open";
                 return;
             }
-
             QSqlQuery query(db);
+
             query.prepare("SELECT file.path FROM tag JOIN tag_file ON tag_file.tag_id = tag.id JOIN file ON file.id = tag_file.file_id WHERE tag.tag_name = :tag");
             query.bindValue(":tag", temp);
             if (!query.exec()) 
             {
-                qWarning() << "SELECT tag failed:" << query.lastError().text();
+                qWarning() << "ERROR: select tag failed:" << query.lastError().text();
                 return;
             }
 
