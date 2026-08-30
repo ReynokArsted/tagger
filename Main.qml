@@ -144,7 +144,7 @@ ApplicationWindow {
     function confirmTagging() {
         if (tagTargetPaths.length != 0) {
             const ok = ThingModel.listOfThingies.assignTagsToFile(tagTargetPaths, selectedTagIds)
-            if (!ok) console.warn("Не удалось сохранить метки для файлов: ", tagTargetPaths)
+            if (!ok) console.warn("ERROR: file tags are not saved for: ", tagTargetPaths)
             else fileModel.setFolder(fileModel.currentFolder) 
         }
         cancelTagging()
@@ -176,17 +176,18 @@ ApplicationWindow {
                 win.toggleTagSelection(id)
             }
             else
-                if (input.text.indexOf(name) === -1) 
+                if (tag_panel.tagInput.text.indexOf(name) === -1) 
                 {
-                    const sep = input.text.length > 0 && !input.text.endsWith(" ") ? " " : ""
-                    input.text += sep + name
+                    const sep = tag_panel.tagInput.text.length > 0 && !tag_panel.tagInput.text.endsWith(" ") ? " " : ""
+                    tag_panel.tagInput.text += sep + name
+                    fileModel.setFolder(tag_panel.tagInput.text)
                 }
         }
 
         function onTagDeleteRequested(id, name) {
             console.log("Delete tag:", id, name)
             const ok = ThingModel.listOfThingies.removeThing(id)
-            if (!ok) console.warn("Error removing tag:", name)
+            if (!ok) console.warn("ERROR: removing tag:", name)
             else win.removeTagFromSelection(id)
         }
 
@@ -226,7 +227,7 @@ ApplicationWindow {
 
         property int r: 8
         property int frame: 4
-        property string tagText: input.text
+        property string tagText: tag_panel.tagInput.text
 
         anchors.fill: parent
         clip: true
@@ -249,267 +250,56 @@ ApplicationWindow {
         Item {
             anchors.fill: parent
 
-            Rectangle {
-                id: topBar
+            Example.TopBar
+            {
+                id: top_bar
 
-                height: 36
                 width: parent.width
                 anchors.top: parent.top
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.margins: content.frame
-                color: Theme.backgroundColor
-                radius: content.r - content.frame
-                clip: true
+                radius: 4
+                color: Theme.fieldBackground
+                border.color: Theme.borderColor
+                border.width: 1
 
-                MouseArea { anchors.fill: parent; onPressed: win.startSystemMove() }
+                corner_radius: content.r - content.frame
+                title_text: win.title
+                move_target: win
 
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 10
-                    anchors.rightMargin: 10
-                    spacing: 8
-
-                    Text { text: win.title; color: Theme.textColor }
-                    Item { Layout.fillWidth: true }
-                    Example.ThemedButton { text: "—"; showBorder: false; onClicked: win.showMinimized() }
-                    Example.ThemedButton { text: "x"; showBorder: false; onClicked: win.close() }
-                }
+                onMinimizeClicked: win.showMinimized()
+                onCloseClicked: win.close() 
             }
 
             ColumnLayout {
                 anchors.margins: 10
                 anchors.fill: parent
-                anchors.topMargin: topBar.height
+                anchors.topMargin: top_bar.height
+                anchors.bottomMargin: bottom_bar.height
 
                 RowLayout {
                     spacing: 2
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    clip: true
 
-                    ColumnLayout {
-                        spacing: 10
-                        Layout.preferredWidth: 320
-                        Layout.minimumWidth: 320
-                        Layout.maximumWidth: 320
-                        Layout.fillHeight: true
+                    TagPanel 
+                    {
+                        id: tag_panel
 
-                        clip: true
+                        fileModel: fileModel
+                        thingModel: ThingModel.listOfThingies
+                        hub: hub
+                        dragOverlay: dragOverlay
+                        tpparentWin: win
 
-                        Label {
-                            //text: qsTr("Вводи метки:")
-                            color: Theme.textColor
-                            font.pixelSize: 14
-                            anchors.horizontalCenter: parent.horizontalCenter
-                        }
+                        addTagHighlight: win.addTagHighlight
+                        tagSelectMode: win.tagSelectMode
+                        selectedTagIds: win.selectedTagIds
 
-                        RowLayout {
-                            spacing: 10
-                            Layout.fillWidth: true
-
-                            Rectangle {
-                                Layout.fillWidth: true  
-                                Layout.preferredHeight: 40
-                                color: Theme.fieldBackground
-                                border.color: Theme.borderColor
-                                border.width: 1
-                                radius: 4
-
-                                property bool hasText: input.length > 0
-
-                                Text {
-                                    text: "Поиск?"
-                                    font.pixelSize: 16
-                                    color: "#888"
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    anchors.left: parent.left
-                                    anchors.leftMargin: 8
-                                    visible: !parent.hasText
-                                }
-
-                                
-
-                                TextInput {
-                                    id: input
-
-                                    anchors.fill: parent
-                                    anchors.margins: 8
-                                    color: Theme.textColor
-                                    font.pixelSize: 16
-                                    horizontalAlignment: Text.AlignLeft
-                                    clip: true
-
-                                    //onTextChanged: console.log(`Text has changed to: ${text}`)
-                                    onAccepted: fileModel.setFolder(input.text)
-///
-                                    //placeholderText: "Например: C:/Windows/Sys или D:/Proj/…"
-                                    onTextChanged: refreshCandidates
-
-                                    // Для плавности: при фокусе обновлять кандидаты
-                                    onActiveFocusChanged: { if (activeFocus) refreshCandidates() }
-
-                                    Keys.onPressed: (event) => {
-                                        const k = event.key
-
-                                        if (k === Qt.Key_Tab) {
-                                            // Completion по common-prefix
-                                            event.accepted = true
-
-                                            if (!candidates || candidates.length === 0)
-                                                return
-
-                                            const temp_input = input.text
-                                            const sep = detectSep(temp_input)
-                                            const norm = normalizeForLogic(temp_input)
-
-                                            const sp = splitDirAndPrefix(norm)
-                                            const dirPathNorm = sp.dirPath
-                                            const prefix = sp.prefix
-
-                                            const cp = commonPrefixFromCandidates(candidates, prefix)
-                                            if (!cp || cp.length === 0)
-                                                return
-
-                                            // вставляем dirPathNorm + cp, приводя разделители обратно под выбор пользователя:
-                                            // dirPathNorm в логике на '/', заменим обратно на sep
-                                            //const dirPathToUse = dirPathNorm.replaceAll("/", sep)
-                                            const dirPathToUse = dirPathNorm.split("/").join(sep)
-
-                                            input.text = dirPathToUse + cp
-
-                                            // Если cp совпал с единственным кандидатом и это папка — дописываем '/'
-                                            if (candidates.length === 1) {
-                                                const cand = candidates[0]
-                                                if (cand.isDir) {
-                                                    // если строка не заканчивается разделителем — дописать
-                                                    // const needSep = input.text.endsWith(sep) ? "" : sep
-                                                    // input.text = input.text + needSep + (sep) // один лишний может получиться?
-
-                                                    // Исправим аккуратно: просто добавим один sep если не заканчивается
-                                                    if (!input.text.endsWith(sep))
-                                                        input.text += sep
-                                                }
-                                            }
-
-                                            // обновить popup под новое значение
-                                            refreshCandidates()
-                                            return
-                                        }
-
-                                        if (k === Qt.Key_Return || k === Qt.Key_Enter) {
-                                            // Подтверждение: первый кандидат (или ничего)
-                                            if (candidates && candidates.length > 0) {
-                                                event.accepted = true
-                                                const temp_input = input.text
-                                                const sep = detectSep(temp_input)
-                                                const norm = normalizeForLogic(temp_input)
-                                                const sp = splitDirAndPrefix(norm)
-
-                                                //const dirPathToUse = sp.dirPath.replaceAll("/", sep)
-                                                const dirPathToUse = sp.dirPath.split("/").join(sep)
-
-                                                const cand = candidates[0]
-
-                                                input.text = dirPathToUse + cand.name
-                                                if (cand.isDir) {
-                                                    if (!input.text.endsWith(sep))
-                                                        input.text += sep
-                                                }
-                                                refreshCandidates()
-                                            }
-                                            return
-                                        }
-
-                                        if (k === Qt.Key_Escape) {
-                                            //popup.opened = false
-                                            event.accepted = true
-                                            return
-                                        }
-                                    }
-///
-                                }
-                            }
-
-                            Example.ThemedButton 
-                            {
-                                text: qsTr("..")
-                                Layout.preferredWidth: 40
-                                Layout.preferredHeight: 40
-                                onClicked: {
-                                    const p = fileModel.parent_folder()
-                                    if (p !== "" && fileModel.hasFolder) {
-                                        fileModel.setFolder(p)
-                                        input.text = p
-                                    }
-                                }
-                            }
-
-                            Example.ThemedButton 
-                            {
-                                text: qsTr("+")
-                                Layout.preferredWidth: 40
-                                Layout.preferredHeight: 40
-                                onClicked: ThingModel.listOfThingies.addThing(input.text)
-                            }
-
-                            Example.ThemedButton 
-                            {
-                                visible: win.tagSelectMode ? true : false
-                                text: "V"
-                                Layout.preferredWidth: 40
-                                Layout.preferredHeight: 40
-                                onClicked: 
-                                {
-                                    win.confirmTagging()
-                                    fileModel.setFolder(input.text)
-                                }
-                            }
-
-                            Example.ThemedButton 
-                            {
-                                visible: win.tagSelectMode ? true : false
-                                text: qsTr("X")
-                                Layout.preferredWidth: 40
-                                Layout.preferredHeight: 40
-                                onClicked: win.cancelTagging()
-                            }
-                        }
-
-                        Label 
-                        {
-                            text: qsTr("Текущий ввод: %1").arg(input.text)
-                            font.pixelSize: 12
-                            color: "gray"
-                            anchors.horizontalCenter: parent.horizontalCenter
-                        }
-
-                        Example.ThingGrid 
-                        {
-                            id: g
-
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            highlightBorders: win.addTagHighlight
-                            isTagSelectionMode: win.tagSelectMode
-                            selectedTagIds: win.selectedTagIds  
-                            hub: hub
-                            dragOverlay: dragOverlay
-                        }
-                        
-                        RowLayout 
-                        {
-                            Example.ThemedButton 
-                            {
-                                text: "⚙"
-                                onClicked: win.settings_mode = true
-                            }
-                            Example.ThemedButton 
-                            {
-                                text: "?"
-                                //onClicked:
-                            }
-                        }
+                        onSettingsClicked: win.settings_mode = true
+                        onTaggingConfirmed: win.confirmTagging()
+                        onTaggingCancelled: win.cancelTagging()
                     }
 
                     FileListModel { id: fileModel }
@@ -520,13 +310,16 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         Layout.minimumWidth: 120
-                        Layout.margins: 12     
+                        Layout.topMargin: 12
+                        Layout.bottomMargin: 12
+                        Layout.rightMargin: 6
+                        Layout.leftMargin: 6     
 
                         radius: 10
                         color: Theme.fieldBackground
                         border.color: Theme.borderColor
                         border.width: 1
-                        clip: true
+                        //clip: true
 
                         layer.enabled: true
                         layer.effect: MultiEffect {
@@ -544,7 +337,8 @@ ApplicationWindow {
                             ListView {
                                 id: fileListView
                                 
-                                property alias tagInput: input
+                                //property alias tagInput: input
+                                property alias tagInput: tag_panel.tagInput
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 clip: true
@@ -921,6 +715,25 @@ ApplicationWindow {
                         }
                     }
                 }
+            }
+
+            Example.BottomBar
+            {
+                id: bottom_bar
+
+                width: parent.width
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.margins: content.frame
+ 
+                radius: 4
+                color: Theme.fieldBackground
+                border.color: Theme.borderColor
+                border.width: 1
+
+                corner_radius: content.r - content.frame
+                move_target: win
             }
         }
     }

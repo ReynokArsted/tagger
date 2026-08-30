@@ -32,11 +32,16 @@ qt_add_qml_module(appuntitled
         ThingGrid.qml 
         ThingTile.qml
         SignalHub.qml
+        TopBar.qml
+        BottomBar.qml
+        TagPanel.qml
+        SearchLine.qml
     SOURCES 
         Thingie.h Thingie.cpp 
         ThingieListModel.h ThingieListModel.cpp 
         ThingModel.h ThingModel.cpp
         FileListModel.h FileListModel.cpp
+        DataBaseModule.h DataBaseModule.cpp
 )
 
 

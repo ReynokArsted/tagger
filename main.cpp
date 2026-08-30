@@ -10,6 +10,7 @@
 
 #include "Translator.h"
 #include "FileListModel.h"
+#include "DataBaseModule.h"
 
 void logHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
@@ -26,13 +27,16 @@ int main(int argc, char *argv[])
 
     QGuiApplication app(argc, argv);
 
-    QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
-    db.setDatabaseName("test.db");
+    // QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
+    // db.setDatabaseName("test.db");
 
-    if (!db.open()) {
-        qDebug() << "DB open failed: " << db.lastError().text();
-        return -1;
-    }
+    // if (!db.open()) {
+    //     qDebug() << "DB open failed: " << db.lastError().text();
+    //     return -1;
+    // }
+    
+    DataBaseModule db;
+    if (!db.open()) return -1;
 
     //QSqlQuery query(db);
 
@@ -52,6 +56,7 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
     Translator translator(&engine);
     engine.rootContext()->setContextProperty("Translator", &translator);
+    engine.rootContext()->setContextProperty("DataBaseModule", &db);
 
     qmlRegisterType<FileListModel>("untitled.files", 1, 0, "FileListModel");
 

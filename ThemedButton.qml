@@ -2,8 +2,9 @@ import untitled
 import QtQuick
 import QtQuick.Controls
 
-Item {
-    id: control
+Item 
+{
+    id: button
 
     property alias text: label.text
     property int fontSize: 14
@@ -17,15 +18,17 @@ Item {
     height: implicitHeight
     width: implicitWidth
 
-    Rectangle {
+    Rectangle 
+    {
         anchors.fill: parent
         radius: 4
-        border.width: control.showBorder ? 1 : 0
+        border.width: button.showBorder ? 1 : 0
         border.color: Theme.borderColor
-        color: control.pressed ? Theme.fieldBackground : Theme.backgroundColor
+        color: button.pressed ? Theme.fieldBackground : Theme.backgroundColor
     }
 
-    Text {
+    Text 
+    {
         id: label
         
         anchors.fill: parent
@@ -33,16 +36,21 @@ Item {
         anchors.rightMargin: 12
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: Text.AlignHCenter
-        font.pixelSize: control.fontSize
+        font.pixelSize: button.fontSize
         color: Theme.textColor
         elide: Text.ElideRight
     }
 
-    MouseArea {
+    MouseArea 
+    {
         anchors.fill: parent
         hoverEnabled: true
-        onPressed: control.pressed = true
-        onReleased: { control.pressed = false; control.clicked() }
-        onCanceled: control.pressed = false
+        onPressed: button.pressed = true
+        onReleased: 
+        { 
+            button.pressed = false
+            button.clicked() 
+        }
+        onCanceled: button.pressed = false
     }
 }
